@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kihtirh v1.0 — The Ultimate Fraud Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap');
+
+:root {
+  --bg: #0a0c0f;
+  --panel: #0d1117;
+  --panel2: #111820;
+  --border: #1e3a2f;
+  --green: #00ff88;
+  --green2: #00cc66;
+  --green3: #004422;
+  --red: #ff3366;
+  --yellow: #ffcc00;
+  --blue: #00aaff;
+  --purple: #aa44ff;
+  --text: #c8ffd4;
+  --text2: #5a8a6a;
+  --glow: 0 0 10px #00ff8855;
+  --glow2: 0 0 20px #00ff8888;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-title: 'Orbitron', sans-serif;
+  --font-vt: 'VT323', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  height: 100vh;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+}
+
+/* SCANLINES */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* BOOT SCREEN */
+#boot {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-vt);
+  font-size: 22px;
+  color: #00ff88;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+#boot .logo {
+  font-family: var(--font-title);
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: var(--glow2), 0 0 40px #00ff8844;
+  letter-spacing: 8px;
+  margin-bottom: 10px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+#boot-log { text-align: left; width: 500px; margin-top: 20px; }
+#boot-log div { opacity: 1; }
+#boot .bar-wrap { width: 400px; height: 6px; background: #111; border: 1px solid #00ff4422; margin-top: 20px; border-radius: 3px; overflow: hidden; }
+#boot .bar { height: 100%; background: linear-gradient(90deg, #00ff44, #00ffaa); width: 0; transition: width 0.08s; box-shadow: 0 0 10px #00ff44; }
+
+/* TASKBAR */
+#taskbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 40px;
+  background: #060a0e;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 6px;
+  z-index: 1000;
+}
+.tb-btn {
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tb-btn:hover, .tb-btn.active {
+  background: var(--green3);
+  color: var(--green);
+  border-color: var(--green);
+  box-shadow: var(--glow);
+}
+#tb-clock {
+  margin-left: auto;
+  font-family: var(--font-vt);
+  font-size: 18px;
+  color: var(--green);
+}
+#tb-dd {
+  font-family: var(--font-title);
+  font-size: 11px;
+  color: var(--yellow);
+  padding: 4px 10px;
+  background: rgba(255,200,0,0.08);
+  border: 1px solid rgba(255,200,0,0.2);
+  border-radius: 3px;
+  margin-left: auto;
+  text-shadow: 0 0 8px #ffcc0088;
+}
+#tb-level {
+  font-size: 11px;
+  color: var(--purple);
+  padding: 4px 10px;
+  background: rgba(170,68,255,0.08);
+  border: 1px solid rgba(170,68,255,0.2);
+  border-radius: 3px;
+  text-shadow: 0 0 8px #aa44ff88;
+}
+#tb-rep {
+  font-size: 11px;
+  color: var(--red);
+  padding: 4px 10px;
+  background: rgba(255,51,102,0.08);
+  border: 1px solid rgba(255,51,102,0.2);
+  border-radius: 3px;
+}
+
+/* DESKTOP */
+#desktop {
+  position: fixed;
+  inset: 0;
+  bottom: 40px;
+  background: var(--bg);
+  overflow: hidden;
+}
+#desktop-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 80%, rgba(0,255,136,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 80% 20%, rgba(0,170,255,0.03) 0%, transparent 70%),
+    repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(0,255,136,0.012) 80px, rgba(0,255,136,0.012) 81px),
+    repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(0,255,136,0.012) 80px, rgba(0,255,136,0.012) 81px);
+}
+
+/* WINDOWS */
+.win {
+  position: absolute;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,255,136,0.05);
+  min-width: 320px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+  animation: winOpen 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 100;
+}
+.win.focused {
+  border-color: rgba(0,255,136,0.3);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,255,136,0.15), var(--glow);
+  z-index: 200;
+}
+.win-title {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  height: 32px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  cursor: move;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.win-icon { font-size: 14px; }
+.win-name { font-size: 11px; color: var(--text2); flex: 1; letter-spacing: 1px; }
+.win-focused .win-name { color: var(--green); }
+.win-btns { display: flex; gap: 5px; margin-left: auto; }
+.win-btn {
+  width: 12px; height: 12px; border-radius: 50%; border: none;
+  cursor: pointer; transition: all 0.2s; opacity: 0.6;
+}
+.win-btn:hover { opacity: 1; transform: scale(1.2); }
+.win-btn.close { background: var(--red); }
+.win-btn.min { background: var(--yellow); }
+.win-btn.max { background: var(--green); }
+.win-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--green3) transparent;
+}
+
+@keyframes winOpen {
+  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes winClose {
+  to { opacity: 0; transform: scale(0.9) translateY(10px); }
+}
+
+/* DESKTOP ICONS */
+#desktop-icons {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.desk-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 72px;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.desk-icon:hover {
+  background: rgba(0,255,136,0.06);
+  border-color: rgba(0,255,136,0.2);
+}
+.desk-icon:active { transform: scale(0.95); }
+.desk-icon .ico { font-size: 28px; margin-bottom: 4px; }
+.desk-icon .lbl { font-size: 10px; color: var(--text2); text-align: center; letter-spacing: 0.5px; }
+
+/* EMAIL CLIENT */
+.email-list { border-bottom: 1px solid var(--border); }
+.email-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.email-item:hover { background: rgba(0,255,136,0.04); }
+.email-item.unread { border-left: 3px solid var(--green); }
+.email-item.selected { background: rgba(0,255,136,0.08); }
+.email-item .sender { font-size: 11px; color: var(--green); min-width: 120px; }
+.email-item .subject { font-size: 11px; color: var(--text2); flex: 1; }
+.email-item .time { font-size: 10px; color: #335; }
+.email-item .badge { font-size: 9px; padding: 1px 5px; background: var(--green3); color: var(--green); border-radius: 2px; }
+.email-compose {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.email-compose .field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.email-compose .field label { font-size: 10px; color: var(--text2); min-width: 40px; }
+.email-compose input, .email-compose textarea {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  width: 100%;
+  outline: none;
+  resize: none;
+}
+.email-compose textarea { height: 100px; padding-top: 8px; }
+.email-view { padding: 14px; font-size: 12px; line-height: 1.7; }
+.email-view h3 { color: var(--green); margin-bottom: 10px; font-size: 13px; }
+.email-view .meta { color: var(--text2); font-size: 10px; margin-bottom: 12px; }
+.email-view p { color: var(--text); margin-bottom: 8px; }
+.email-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+
+/* BROWSER */
+.browser-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel2);
+}
+.browser-bar input {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  outline: none;
+}
+.browser-bar input:focus { border-color: var(--green); box-shadow: var(--glow); }
+.browser-nav-btn {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 13px;
+  width: 26px; height: 26px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.browser-nav-btn:hover { border-color: var(--green); color: var(--green); }
+.browser-content { padding: 0; }
+
+/* FAKE WEBSITES */
+.fakesite {
+  font-family: 'Arial', sans-serif;
+  background: #fff;
+  color: #222;
+  min-height: 300px;
+}
+.fakesite.bank {
+  --site-color: #003366;
+  --site-accent: #0066cc;
+}
+.fakesite.bank .header {
+  background: var(--site-color);
+  color: white;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fakesite.bank .header .logo { font-size: 20px; font-weight: bold; letter-spacing: 2px; }
+.fakesite.bank .header .tagline { font-size: 11px; opacity: 0.7; }
+.fakesite.bank .body { padding: 24px; }
+.fakesite.bank .login-box {
+  max-width: 340px;
+  margin: 0 auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 24px;
+}
+.fakesite.bank h2 { color: var(--site-color); font-size: 18px; margin-bottom: 16px; }
+.fakesite .fake-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  outline: none;
+  box-sizing: border-box;
+}
+.fakesite .fake-input:focus { border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.15); }
+.fakesite .fake-btn {
+  width: 100%;
+  padding: 10px;
+  background: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.fakesite .fake-btn:hover { background: #0052a3; }
+.fakesite .ssl-badge { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #4a4; margin-top: 8px; }
+
+/* TERMINAL */
+.terminal-body {
+  background: #000;
+  padding: 12px;
+  font-family: var(--font-vt);
+  font-size: 18px;
+  color: #00ff44;
+  min-height: 300px;
+}
+.terminal-line { margin-bottom: 2px; line-height: 1.4; word-break: break-all; }
+.terminal-line.cmd { color: #fff; }
+.terminal-line.output { color: #00cc33; }
+.terminal-line.error { color: #ff4444; }
+.terminal-line.success { color: #00ff88; }
+.terminal-line.warn { color: #ffcc00; }
+.terminal-input-line { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.terminal-input-line .prompt { color: var(--green); white-space: nowrap; }
+.terminal-input-line input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: var(--font-vt);
+  font-size: 18px;
+  outline: none;
+  flex: 1;
+  caret-color: #00ff44;
+}
+
+/* SHOP */
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px;
+}
+.shop-item {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.shop-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,255,136,0.05), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.shop-item:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: var(--glow); }
+.shop-item:hover::before { opacity: 1; }
+.shop-item.locked { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }
+.shop-item.locked:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.shop-item.purchased { border-color: var(--green2); }
+.shop-item .item-icon { font-size: 24px; margin-bottom: 8px; }
+.shop-item .item-name { font-size: 11px; color: var(--green); margin-bottom: 4px; letter-spacing: 1px; }
+.shop-item .item-desc { font-size: 10px; color: var(--text2); margin-bottom: 10px; line-height: 1.5; }
+.shop-item .item-cost { font-size: 12px; color: var(--yellow); }
+.shop-item .item-effect { font-size: 10px; color: var(--blue); margin-top: 2px; }
+.shop-item .lock-reason { font-size: 9px; color: var(--red); margin-top: 4px; }
+.shop-item .purchased-badge {
+  position: absolute;
+  top: 6px; right: 6px;
+  font-size: 9px;
+  background: var(--green3);
+  color: var(--green);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+/* MISSIONS / SCAM OPS */
+.mission-list { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.mission {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 12px;
+  transition: all 0.2s;
+  position: relative;
+}
+.mission:hover { border-color: rgba(0,255,136,0.3); }
+.mission.active { border-color: var(--green); }
+.mission .m-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mission .m-icon { font-size: 18px; }
+.mission .m-name { font-size: 12px; color: var(--green); flex: 1; }
+.mission .m-reward { font-size: 11px; color: var(--yellow); }
+.mission .m-desc { font-size: 10px; color: var(--text2); margin-bottom: 10px; line-height: 1.5; }
+.mission .m-progress-wrap { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+.mission .m-progress { height: 100%; background: linear-gradient(90deg, var(--green3), var(--green)); border-radius: 2px; transition: width 0.4s; }
+.mission .m-btn {
+  font-size: 10px;
+  padding: 5px 14px;
+  background: var(--green3);
+  border: 1px solid var(--green);
+  color: var(--green);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+.mission .m-btn:hover { background: var(--green); color: #000; box-shadow: var(--glow); }
+.mission .m-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mission .m-btn.running { color: var(--yellow); border-color: var(--yellow); background: rgba(255,200,0,0.08); }
+.mission .m-cooldown { font-size: 10px; color: var(--text2); }
+.mission.locked { opacity: 0.35; }
+
+/* STATS */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 14px;
+}
+.stat-card {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 12px;
+}
+.stat-card .s-label { font-size: 9px; color: var(--text2); letter-spacing: 2px; margin-bottom: 4px; }
+.stat-card .s-value { font-family: var(--font-title); font-size: 20px; color: var(--green); }
+.stat-card .s-sub { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+/* NOTIFICATIONS */
+#notif-container {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 280px;
+}
+.notif {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--green);
+  border-radius: 5px;
+  padding: 10px 14px;
+  font-size: 11px;
+  animation: notifIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  cursor: pointer;
+}
+.notif:hover { opacity: 0.8; }
+.notif.success { border-left-color: var(--green); }
+.notif.error { border-left-color: var(--red); }
+.notif.warn { border-left-color: var(--yellow); }
+.notif.info { border-left-color: var(--blue); }
+.notif .n-title { color: var(--green); font-size: 12px; margin-bottom: 3px; }
+.notif.error .n-title { color: var(--red); }
+.notif.warn .n-title { color: var(--yellow); }
+.notif.info .n-title { color: var(--blue); }
+.notif .n-body { color: var(--text2); }
+@keyframes notifIn {
+  from { opacity: 0; transform: translateX(30px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes notifOut {
+  to { opacity: 0; transform: translateX(30px) scale(0.95); height: 0; padding: 0; margin: 0; }
+}
+
+/* DD FLOATING COINS */
+.dd-float {
+  position: fixed;
+  font-family: var(--font-title);
+  font-size: 14px;
+  color: var(--yellow);
+  text-shadow: 0 0 10px var(--yellow);
+  pointer-events: none;
+  z-index: 9000;
+  font-weight: 700;
+  animation: ddFloat 1.4s ease-out forwards;
+}
+@keyframes ddFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-70px) scale(1.3); }
+}
+
+/* MISC */
+.btn {
+  padding: 6px 14px;
+  background: var(--green3);
+  border: 1px solid var(--green);
+  color: var(--green);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+.btn:hover { background: var(--green); color: #000; box-shadow: var(--glow); }
+.btn.danger { background: rgba(255,51,102,0.1); border-color: var(--red); color: var(--red); }
+.btn.danger:hover { background: var(--red); color: #fff; }
+.btn.yellow { background: rgba(255,200,0,0.1); border-color: var(--yellow); color: var(--yellow); }
+
+.section-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel2);
+}
+.section-header .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+
+/* HEATMAP / LOG */
+.activity-log {
+  padding: 10px 14px;
+  font-size: 10px;
+  line-height: 2;
+  color: var(--text2);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.activity-log .entry { display: flex; gap: 10px; }
+.activity-log .entry .ts { color: #224; }
+.activity-log .entry .msg.pos { color: var(--green); }
+.activity-log .entry .msg.neg { color: var(--red); }
+.activity-log .entry .msg.warn { color: var(--yellow); }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes fadein { to { opacity: 1; } }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+.cursor-blink { animation: blink 1s step-end infinite; }
+
+/* XP BAR */
+#xp-bar-wrap {
+  position: fixed;
+  bottom: 40px;
+  left: 0; right: 0;
+  height: 3px;
+  background: var(--panel);
+  z-index: 999;
+}
+#xp-bar { height: 100%; background: linear-gradient(90deg, var(--purple), #ff44aa); transition: width 0.5s; box-shadow: 0 0 6px var(--purple); }
+
+/* DRAG */
+.win-title { cursor: move; }
+
+/* RESIZE HANDLE */
+.win-resize {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 16px; height: 16px;
+  cursor: nwse-resize;
+  z-index: 10;
+}
+.win-resize::after {
+  content: '';
+  position: absolute;
+  bottom: 4px; right: 4px;
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-radius: 0 0 2px 0;
+  transition: border-color 0.2s;
+}
+.win:hover .win-resize::after { border-color: var(--green2); }
+
+/* WANTED LEVEL */
+#wanted {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.wanted-star { font-size: 12px; transition: all 0.3s; filter: grayscale(1); opacity: 0.3; }
+.wanted-star.active { filter: none; opacity: 1; text-shadow: 0 0 8px var(--red); animation: pulse 1.5s infinite; }
+
+/* PHISHING MINIGAME */
+.phish-game { padding: 14px; }
+.email-template {
+  background: #fff;
+  color: #222;
+  padding: 16px;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+  position: relative;
+}
+.phish-editor { margin-top: 12px; }
+.phish-editor label { font-size: 10px; color: var(--text2); display: block; margin-bottom: 4px; letter-spacing: 1px; }
+.phish-editor input, .phish-editor select {
+  width: 100%;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 3px;
+  outline: none;
+  margin-bottom: 10px;
+}
+.phish-editor input:focus, .phish-editor select:focus { border-color: var(--green); }
+.suspicion-meter { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+.suspicion-fill { height: 100%; border-radius: 3px; transition: width 0.4s, background 0.4s; }
+
+/* INTRO */
+#intro {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.intro-box {
+  background: var(--panel);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 32px;
+  max-width: 500px;
+  box-shadow: var(--glow2);
+  animation: winOpen 0.4s ease;
+}
+.intro-box h1 { font-family: var(--font-title); font-size: 28px; color: var(--green); margin-bottom: 8px; letter-spacing: 4px; }
+.intro-box .subtitle { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
+.intro-box p { font-size: 12px; color: var(--text); line-height: 1.8; margin-bottom: 14px; }
+.intro-box .start-btn {
+  width: 100%;
+  padding: 12px;
+  font-family: var(--font-title);
+  font-size: 14px;
+  letter-spacing: 3px;
+  background: var(--green3);
+  border: 2px solid var(--green);
+  color: var(--green);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 10px;
+}
+.intro-box .start-btn:hover { background: var(--green); color: #000; box-shadow: var(--glow2); }
+
+/* HUD - bottom right stats widget */
+#hud {
+  position: fixed;
+  bottom: 48px;
+  right: 10px;
+  width: 210px;
+  background: rgba(10,14,18,0.92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 900;
+  font-size: 11px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  transition: opacity 0.3s;
+  overflow: hidden;
+}
+#hud.collapsed #hud-body { display: none; }
+#hud-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  background: var(--panel2);
+  gap: 6px;
+  user-select: none;
+}
+#hud-header:hover { background: var(--green3); }
+#hud-header span { font-size: 10px; color: var(--text2); flex:1; letter-spacing: 1px; }
+#hud-header .hud-toggle { font-size: 10px; color: var(--text2); }
+#hud-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+.hud-row { display: flex; justify-content: space-between; align-items: center; }
+.hud-label { color: var(--text2); font-size: 10px; letter-spacing: 0.5px; }
+.hud-val { font-size: 11px; font-weight: bold; }
+.hud-val.green { color: var(--green); }
+.hud-val.yellow { color: var(--yellow); }
+.hud-val.purple { color: var(--purple); }
+.hud-val.red { color: var(--red); }
+.hud-minibar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 1px; overflow: hidden; }
+.hud-minibar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+/* TUTORIAL OVERLAY */
+#tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  pointer-events: none;
+}
+#tutorial-box {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 16px 18px;
+  width: 300px;
+  box-shadow: var(--glow2), 0 8px 32px rgba(0,0,0,0.7);
+  z-index: 7001;
+  pointer-events: all;
+  animation: winOpen 0.25s ease;
+}
+#tutorial-box .tut-step { font-size: 10px; color: var(--text2); letter-spacing: 1px; margin-bottom: 6px; }
+#tutorial-box .tut-title { font-size: 14px; color: var(--green); font-family: var(--font-title); margin-bottom: 8px; letter-spacing: 1px; }
+#tutorial-box .tut-body { font-size: 12px; color: var(--text); line-height: 1.7; margin-bottom: 14px; }
+#tutorial-box .tut-tip { font-size: 11px; color: var(--yellow); background: rgba(255,200,0,0.07); border: 1px solid rgba(255,200,0,0.2); border-radius: 4px; padding: 7px 10px; margin-bottom: 12px; line-height: 1.6; }
+#tutorial-box .tut-btns { display: flex; gap: 8px; }
+#tutorial-arrow {
+  position: fixed;
+  font-size: 22px;
+  color: var(--green);
+  z-index: 7001;
+  pointer-events: none;
+  text-shadow: var(--glow2);
+  animation: tutBounce 0.8s ease-in-out infinite;
+  transition: all 0.4s ease;
+}
+@keyframes tutBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+#tutorial-highlight {
+  position: fixed;
+  border: 2px solid var(--green);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(0,255,136,0.12), var(--glow2);
+  z-index: 6999;
+  pointer-events: none;
+  transition: all 0.4s ease;
+  animation: tutPulse 1.5s ease-in-out infinite;
+}
+@keyframes tutPulse { 0%,100%{box-shadow:0 0 0 4px rgba(0,255,136,0.12), var(--glow2)} 50%{box-shadow:0 0 0 8px rgba(0,255,136,0.06), var(--glow2)} }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--green3); border-radius: 2px; }
+
+/* RANK badge */
+.rank-badge {
+  font-family: var(--font-title);
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  letter-spacing: 2px;
+  background: var(--green3);
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+</style>
+</head>
+<body>
+
+<!-- BOOT SCREEN -->
+<div id="boot" style="cursor:pointer">
+  <div class="logo">Kihtirh</div>
+  <div style="font-size:14px;color:#335;letter-spacing:3px;">v1.0.3 — DARKNET EDITION</div>
+  <div id="boot-log"></div>
+  <div class="bar-wrap"><div class="bar" id="boot-bar"></div></div>
+  <div style="font-size:11px;color:#223;margin-top:18px;letter-spacing:2px;">[ CLICK TO SKIP ]</div>
+</div>
+
+<!-- INTRO -->
+<div id="intro" style="display:none">
+  <div class="intro-box">
+    <h1>Kihtirh</h1>
+    <div class="subtitle">// THE ULTIMATE FRAUD SIMULATOR</div>
+    <p>Welcome, rookie. You've just gotten access to a hacked darknet machine. Start small — phishing emails, fake websites — and work your way up to running global fraud operations.</p>
+    <p style="color:var(--text2)">💀 <strong style="color:var(--yellow)">DD</strong> = DarkDollars. Your currency. Earn it. Launder it. Spend it. <br>⚠️ Your <strong style="color:var(--red)">Wanted Level</strong> rises with every operation. Stay under the radar — or don't.</p>
+    <button class="start-btn" onclick="startGame()">▶ INITIALIZE SYSTEM</button>
+  </div>
+</div>
+
+<!-- XP BAR -->
+<div id="xp-bar-wrap"><div id="xp-bar" style="width:0%"></div></div>
+
+<!-- TASKBAR -->
+<div id="taskbar">
+  <span style="font-family:var(--font-title);font-size:12px;color:var(--green);letter-spacing:2px;margin-right:6px">Kihtirh</span>
+  <button class="tb-btn" onclick="openWindow('email')">📧 Mail</button>
+  <button class="tb-btn" onclick="openWindow('browser')">🌐 Browser</button>
+  <button class="tb-btn" onclick="openWindow('terminal')">💻 Terminal</button>
+  <button class="tb-btn" onclick="openWindow('ops')">🎯 Scam Ops</button>
+  <button class="tb-btn" onclick="openWindow('shop')">🛒 Shop</button>
+  <button class="tb-btn" onclick="openWindow('stats')">📊 Stats</button>
+  <div id="wanted">
+    <span style="font-size:10px;color:var(--text2);margin-right:3px">WANTED:</span>
+    <span class="wanted-star" id="ws1">★</span>
+    <span class="wanted-star" id="ws2">★</span>
+    <span class="wanted-star" id="ws3">★</span>
+    <span class="wanted-star" id="ws4">★</span>
+    <span class="wanted-star" id="ws5">★</span>
+  </div>
+  <div id="tb-level">LVL <span id="level-num">1</span> — <span id="rank-name">SCRIPT KIDDIE</span></div>
+  <div id="tb-dd">💰 <span id="dd-display">0</span> DD</div>
+  <div id="tb-clock">00:00</div>
+</div>
+
+<!-- DESKTOP -->
+<div id="desktop">
+  <div id="desktop-bg"></div>
+  <div id="desktop-icons">
+    <div class="desk-icon" ondblclick="openWindow('email')">
+      <div class="ico">📧</div><div class="lbl">Mail Client</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('browser')">
+      <div class="ico">🌐</div><div class="lbl">DarkBrowser</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('terminal')">
+      <div class="ico">💻</div><div class="lbl">Terminal</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('ops')">
+      <div class="ico">🎯</div><div class="lbl">Scam Ops</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('shop')">
+      <div class="ico">🛒</div><div class="lbl">Black Market</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('stats')">
+      <div class="ico">📊</div><div class="lbl">Dashboard</div>
+    </div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-header" onclick="toggleHUD()">
+    <span>📊 STATS HUD</span>
+    <span class="hud-toggle" id="hud-toggle-icon">▲</span>
+  </div>
+  <div id="hud-body">
+    <div class="hud-row"><span class="hud-label">DD BALANCE</span><span class="hud-val yellow" id="hud-dd">0</span></div>
+    <div class="hud-row"><span class="hud-label">PASSIVE</span><span class="hud-val green" id="hud-passive">0/s</span></div>
+    <div class="hud-row" style="margin-top:2px"><span class="hud-label">LEVEL</span><span class="hud-val purple" id="hud-lvl">1 — SCRIPT KIDDIE</span></div>
+    <div>
+      <div class="hud-minibar"><div class="hud-minibar-fill" id="hud-xpbar" style="width:0%;background:var(--purple)"></div></div>
+    </div>
+    <div class="hud-row"><span class="hud-label">SCAMS RUN</span><span class="hud-val green" id="hud-scams">0</span></div>
+    <div class="hud-row"><span class="hud-label">WANTED</span><span class="hud-val red" id="hud-wanted">☆☆☆☆☆</span></div>
+    <div>
+      <div class="hud-minibar"><div class="hud-minibar-fill" id="hud-wantedbar" style="width:0%;background:var(--red)"></div></div>
+    </div>
+    <div class="hud-row" style="margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
+      <span class="hud-label">TOTAL EARNED</span><span class="hud-val yellow" id="hud-total">0</span>
+    </div>
+    <div style="margin-top:6px">
+      <button class="btn" style="width:100%;font-size:10px;padding:4px" onclick="showTutorial()">❓ Tutorial</button>
+    </div>
+  </div>
+</div>
+
+<!-- TUTORIAL -->
+<div id="tutorial-overlay" style="display:none">
+  <div id="tutorial-highlight" style="display:none"></div>
+  <div id="tutorial-arrow" style="display:none">👆</div>
+  <div id="tutorial-box" style="bottom:100px;right:230px">
+    <div class="tut-step" id="tut-step-label">STEP 1 / 7</div>
+    <div class="tut-title" id="tut-title">Welcome to Kihtirh</div>
+    <div class="tut-body" id="tut-body"></div>
+    <div class="tut-tip" id="tut-tip" style="display:none"></div>
+    <div class="tut-btns">
+      <button class="btn" style="flex:1" id="tut-prev" onclick="tutNav(-1)">← Back</button>
+      <button class="btn" style="flex:2" id="tut-next" onclick="tutNav(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="notif-container"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════
+const G = {
+  dd: 0,
+  level: 1,
+  xp: 0,
+  xpNext: 100,
+  wantedLevel: 0,
+  totalEarned: 0,
+  scamsRun: 0,
+  phishSent: 0,
+  phishSuccess: 0,
+  clicksPerSec: 0,
+  passiveIncome: 0,
+  multiplier: 1.0,
+  gameTime: 0,
+  log: [],
+  upgrades: {
+    spellcheck: false,
+    vpn: false,
+    phishKit: false,
+    botnet: false,
+    identityPack: false,
+    burnerPhones: false,
+  },
+  missions: {},
+  // passive tickers
+  tickers: {},
+};
+
+const RANKS = [
+  [1,'SCRIPT KIDDIE'],
+  [3,'PHISHER'],
+  [5,'CON ARTIST'],
+  [8,'FRAUD SYNDICATE'],
+  [12,'DIGITAL KINGPIN'],
+];
+function getRank(lvl) {
+  let r = RANKS[0][1];
+  for(const [l,n] of RANKS) { if(lvl >= l) r = n; }
+  return r;
+}
+
+// ═══════════════════════════════════════════
+// BOOT SEQUENCE
+// ═══════════════════════════════════════════
+const bootMessages = [
+  '[OK] Loading kernel modules...',
+  '[OK] Mounting encrypted partitions...',
+  '[OK] Initializing TOR routing...',
+  '[OK] Spoofing MAC address: 00:DE:AD:BE:EF:99',
+  '[OK] Connecting to darknet node...',
+  '[WARN] Bypassing firewall rules...',
+  '[OK] Loading Kihtirh core...',
+  '[OK] Injecting stealth payload...',
+  '[OK] All systems nominal. Welcome.',
+];
+
+let bootDone = false;
+
+function dismissBoot() {
+  if(bootDone) return;
+  bootDone = true;
+  const bootEl = document.getElementById('boot');
+  bootEl.style.transition = 'opacity 0.4s';
+  bootEl.style.opacity = '0';
+  bootEl.style.pointerEvents = 'none';
+  setTimeout(() => {
+    bootEl.style.display = 'none';
+    document.getElementById('intro').style.display = 'flex';
+  }, 420);
+}
+
+function skipBoot() { dismissBoot(); }
+
+// Attach both click and touchend for iPad compatibility
+document.addEventListener('DOMContentLoaded', function() {
+  const bootEl = document.getElementById('boot');
+  bootEl.addEventListener('click', skipBoot);
+  bootEl.addEventListener('touchend', function(e) { e.preventDefault(); skipBoot(); });
+});
+
+async function runBoot() {
+  const log = document.getElementById('boot-log');
+  const bar = document.getElementById('boot-bar');
+  for(let i = 0; i < bootMessages.length; i++){
+    await sleep(220 + Math.random()*180);
+    if(bootDone) return;
+    const d = document.createElement('div');
+    d.textContent = bootMessages[i];
+    d.style.color = bootMessages[i].includes('WARN') ? '#ffcc00' : '#00cc44';
+    log.appendChild(d);
+    bar.style.width = ((i+1) / bootMessages.length * 100) + '%';
+  }
+  await sleep(500);
+  dismissBoot();
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════
+// WINDOW SYSTEM — drag, resize, bounds, touch
+// ═══════════════════════════════════════════
+let windows = {};
+let winZ = 200;
+let dragState = null;
+let resizeState = null;
+
+const WIN_MIN_W = 320;
+const WIN_MIN_H = 220;
+
+function getDesktopBounds() {
+  return { w: window.innerWidth, h: window.innerHeight - 43 };
+}
+
+function clampWindow(el) {
+  const bounds = getDesktopBounds();
+  let x = parseInt(el.style.left) || 0;
+  let y = parseInt(el.style.top) || 0;
+  let w = parseInt(el.style.width) || WIN_MIN_W;
+  let h = parseInt(el.style.height) || WIN_MIN_H;
+  w = Math.max(WIN_MIN_W, Math.min(w, bounds.w));
+  h = Math.max(WIN_MIN_H, Math.min(h, bounds.h));
+  x = Math.max(0, Math.min(x, bounds.w - w));
+  y = Math.max(0, Math.min(y, bounds.h - 32));
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.width = w + 'px';
+  el.style.height = h + 'px';
+}
+
+function openWindow(id) {
+  if(windows[id]) {
+    focusWindow(id);
+    if(windows[id].minimized) unminimize(id);
+    return;
+  }
+  const bounds = getDesktopBounds();
+  const configs = {
+    email:   { title:'Mail Client',     icon:'📧', w:600, h:480, render: renderEmail },
+    browser: { title:'DarkBrowser',     icon:'🌐', w:620, h:500, render: renderBrowser },
+    terminal:{ title:'Terminal',        icon:'💻', w:560, h:420, render: renderTerminal },
+    ops:     { title:'Scam Ops',        icon:'🎯', w:580, h:520, render: renderOps },
+    shop:    { title:'Black Market',    icon:'🛒', w:560, h:500, render: renderShop },
+    stats:   { title:'Dashboard',       icon:'📊', w:500, h:440, render: renderStats },
+    phish:   { title:'Phishing Studio', icon:'🎣', w:560, h:560, render: renderPhish },
+  };
+  const cfg = configs[id];
+  if(!cfg) return;
+
+  // Cascade offset so windows don't all stack perfectly
+  const openCount = Object.keys(windows).length;
+  const ox = 80 + (openCount % 5) * 30;
+  const oy = 40 + (openCount % 4) * 28;
+  const w = Math.min(cfg.w, bounds.w - 20);
+  const h = Math.min(cfg.h, bounds.h - 20);
+  const x = Math.min(ox, bounds.w - w - 10);
+  const y = Math.min(oy, bounds.h - h - 10);
+
+  const win = document.createElement('div');
+  win.className = 'win focused';
+  win.id = 'win-' + id;
+  win.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
+  win.innerHTML = `
+    <div class="win-title" id="wtitle-${id}">
+      <span class="win-icon">${cfg.icon}</span>
+      <span class="win-name">${cfg.title}</span>
+      <div class="win-btns">
+        <button class="win-btn min" onclick="minimizeWin('${id}')"></button>
+        <button class="win-btn close" onclick="closeWindow('${id}')"></button>
+      </div>
+    </div>
+    <div class="win-body" id="wbody-${id}"></div>
+    <div class="win-resize" id="wresize-${id}"></div>
+  `;
+  document.getElementById('desktop').appendChild(win);
+  windows[id] = { el: win, cfg, minimized: false };
+  unfocusAll();
+  win.style.zIndex = ++winZ;
+  cfg.render(document.getElementById('wbody-' + id));
+  win.addEventListener('mousedown', () => focusWindow(id));
+  win.addEventListener('touchstart', () => focusWindow(id), { passive: true });
+
+  // Drag — title bar mouse
+  const titleBar = document.getElementById('wtitle-' + id);
+  titleBar.addEventListener('mousedown', e => startDrag(e, id));
+  titleBar.addEventListener('touchstart', e => startDragTouch(e, id), { passive: false });
+
+  // Resize handle
+  const resizeHandle = document.getElementById('wresize-' + id);
+  resizeHandle.addEventListener('mousedown', e => startResize(e, id));
+  resizeHandle.addEventListener('touchstart', e => startResizeTouch(e, id), { passive: false });
+}
+
+function focusWindow(id) {
+  if(!windows[id]) return;
+  unfocusAll();
+  windows[id].el.classList.add('focused');
+  windows[id].el.style.zIndex = ++winZ;
+}
+function unfocusAll() {
+  document.querySelectorAll('.win').forEach(w => w.classList.remove('focused'));
+}
+function closeWindow(id) {
+  if(!windows[id]) return;
+  const el = windows[id].el;
+  el.style.animation = 'winClose 0.15s forwards';
+  setTimeout(() => { el.remove(); delete windows[id]; }, 150);
+}
+function minimizeWin(id) {
+  if(!windows[id]) return;
+  windows[id].minimized = true;
+  windows[id].el.style.display = 'none';
+}
+function unminimize(id) {
+  if(!windows[id]) return;
+  windows[id].minimized = false;
+  windows[id].el.style.display = 'flex';
+}
+
+// ── DRAG ──
+function startDrag(e, id) {
+  if(e.target.classList.contains('win-btn')) return;
+  e.preventDefault();
+  const win = windows[id]?.el;
+  if(!win) return;
+  focusWindow(id);
+  const rect = win.getBoundingClientRect();
+  dragState = { id, ox: e.clientX - rect.left, oy: e.clientY - rect.top, touch: false };
+}
+function startDragTouch(e, id) {
+  if(e.target.classList.contains('win-btn')) return;
+  e.preventDefault();
+  const win = windows[id]?.el;
+  if(!win) return;
+  focusWindow(id);
+  const t = e.touches[0];
+  const rect = win.getBoundingClientRect();
+  dragState = { id, ox: t.clientX - rect.left, oy: t.clientY - rect.top, touch: true };
+}
+
+// ── RESIZE ──
+function startResize(e, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  const win = windows[id]?.el;
+  if(!win) return;
+  focusWindow(id);
+  const rect = win.getBoundingClientRect();
+  resizeState = { id, startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height, touch: false };
+}
+function startResizeTouch(e, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  const win = windows[id]?.el;
+  if(!win) return;
+  focusWindow(id);
+  const t = e.touches[0];
+  const rect = win.getBoundingClientRect();
+  resizeState = { id, startX: t.clientX, startY: t.clientY, startW: rect.width, startH: rect.height, touch: true };
+}
+
+// ── GLOBAL MOVE / RESIZE HANDLERS ──
+function handlePointerMove(clientX, clientY) {
+  if(dragState) {
+    const win = windows[dragState.id]?.el;
+    if(win) {
+      win.style.left = Math.max(0, clientX - dragState.ox) + 'px';
+      win.style.top  = Math.max(0, clientY - dragState.oy) + 'px';
+      clampWindow(win);
+    }
+  }
+  if(resizeState) {
+    const win = windows[resizeState.id]?.el;
+    if(win) {
+      const bounds = getDesktopBounds();
+      const newW = Math.max(WIN_MIN_W, resizeState.startW + (clientX - resizeState.startX));
+      const newH = Math.max(WIN_MIN_H, resizeState.startH + (clientY - resizeState.startY));
+      const maxW = bounds.w - parseInt(win.style.left || 0);
+      const maxH = bounds.h - parseInt(win.style.top || 0);
+      win.style.width  = Math.min(newW, maxW) + 'px';
+      win.style.height = Math.min(newH, maxH) + 'px';
+    }
+  }
+}
+function handlePointerUp() { dragState = null; resizeState = null; }
+
+document.addEventListener('mousemove',  e => handlePointerMove(e.clientX, e.clientY));
+document.addEventListener('mouseup',    handlePointerUp);
+document.addEventListener('touchmove',  e => { if(dragState||resizeState){ e.preventDefault(); const t=e.touches[0]; handlePointerMove(t.clientX,t.clientY); } }, { passive:false });
+document.addEventListener('touchend',   handlePointerUp);
+
+// Recalculate on resize
+window.addEventListener('resize', () => {
+  Object.values(windows).forEach(w => { if(!w.minimized) clampWindow(w.el); });
+});
+
+
+// ═══════════════════════════════════════════
+// EMAIL
+// ═══════════════════════════════════════════
+let emailState = { view: 'inbox', selected: null };
+const emails = [
+  { id:1, sender:'system@kihtirh.net', subject:'Welcome to Kihtirh', time:'08:00', body:`Welcome, operator.\n\nYour machine is ready. Start small: send a phishing email, set up a fake website, run some scams. Every DD counts.\n\nYour first job: earn 50 DD. Check Scam Ops to get started.\n\nStay anonymous. Stay profitable.`, unread:true, badge:'SYS' },
+  { id:2, sender:'blackmarket_bot@onion', subject:'[SHOP] New items available', time:'08:01', body:`New inventory has arrived:\n\n• Spell Checker Pro — improves email success rate\n• VPN Bundle — reduces wanted level gain\n• Basic Phish Kit — unlocks advanced phishing\n\nVisit the Black Market shop to purchase.\n\nDon't get caught.`, unread:true, badge:'SHOP' },
+  { id:3, sender:'anon7734@darkmail', subject:'Re: partnership', time:'08:03', body:`Hey,\n\nI heard you're the new operator. I've got a botnet I'm selling if you get big enough. Come find me when you hit Level 3.\n\nDon't reply to this email. They watch everything.\n\n— 7734`, unread:false, badge:'TIP' },
+];
+let sentEmails = [];
+let composeData = { to:'', subject:'', body:'' };
+
+function renderEmail(container) {
+  container.innerHTML = `
+    <div style="display:flex;height:100%">
+      <div style="width:160px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+          <button class="btn" style="width:100%" onclick="emailNav('compose')">+ COMPOSE</button>
+        </div>
+        <div id="mail-nav" style="padding:6px">
+          ${['inbox','sent','compose'].map(v=>`<div onclick="emailNav('${v}')" style="padding:7px 10px;border-radius:4px;cursor:pointer;font-size:11px;color:${emailState.view===v?'var(--green)':'var(--text2)'};background:${emailState.view===v?'var(--green3)':'transparent'};transition:all 0.2s" onmouseover="this.style.background='var(--green3)'" onmouseout="this.style.background='${emailState.view===v?'var(--green3)':'transparent'}'">${v==='inbox'?'📥':v==='sent'?'📤':'✏️'} ${v.toUpperCase()}</div>`).join('')}
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto" id="mail-main"></div>
+    </div>
+  `;
+  renderMailMain(container);
+}
+
+function emailNav(view) {
+  emailState.view = view;
+  emailState.selected = null;
+  const win = document.getElementById('wbody-email');
+  if(win) renderEmail(win);
+}
+
+function renderMailMain(container) {
+  const main = document.getElementById('mail-main');
+  if(!main) return;
+  if(emailState.selected !== null) {
+    const em = [...emails,...sentEmails].find(e=>e.id===emailState.selected);
+    if(em) {
+      em.unread = false;
+      main.innerHTML = `
+        <div class="email-view">
+          <h3>${em.subject}</h3>
+          <div class="meta">From: ${em.sender} &nbsp;|&nbsp; ${em.time}</div>
+          <div style="white-space:pre-line">${em.body}</div>
+        </div>
+        <div class="email-actions">
+          <button class="btn" onclick="emailState.selected=null;renderEmail(document.getElementById('wbody-email'))">← Back</button>
+          ${emailState.view==='inbox'?`<button class="btn yellow" onclick="emailNav('compose')">↩ Reply</button>`:''}
+        </div>
+      `;
+      return;
+    }
+  }
+  if(emailState.view==='compose') {
+    main.innerHTML = `
+      <div class="email-compose">
+        <div class="field"><label>TO:</label><input id="c-to" placeholder="victim@example.com" value="${composeData.to}"></div>
+        <div class="field"><label>SUBJ:</label><input id="c-subj" placeholder="URGENT: Verify your account" value="${composeData.subject}"></div>
+        <div class="field" style="border:none"><textarea id="c-body" placeholder="Write your phishing message here...">${composeData.body}</textarea></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="sendPhishEmail()">📤 SEND PHISH</button>
+          <button class="btn yellow" onclick="openPhishStudio()">🎣 Phishing Studio</button>
+        </div>
+        <div id="send-result" style="font-size:11px;margin-top:8px"></div>
+      </div>
+    `;
+    return;
+  }
+  const list = emailState.view==='inbox' ? emails : sentEmails;
+  main.innerHTML = list.length ? list.map(em=>`
+    <div class="email-item ${em.unread?'unread':''}" onclick="emailState.selected=${em.id};renderEmail(document.getElementById('wbody-email'))">
+      <div>
+        <div class="sender">${em.sender}</div>
+        <div class="subject">${em.subject}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="time">${em.time}</div>
+        ${em.badge?`<div class="badge">${em.badge}</div>`:''}
+      </div>
+    </div>
+  `).join('') : `<div style="padding:30px;text-align:center;color:var(--text2);font-size:12px">No emails.</div>`;
+}
+
+function sendPhishEmail() {
+  const to = document.getElementById('c-to')?.value.trim();
+  const subj = document.getElementById('c-subj')?.value.trim();
+  const body = document.getElementById('c-body')?.value.trim();
+  const res = document.getElementById('send-result');
+  if(!to||!subj||!body){
+    if(res) res.innerHTML='<span style="color:var(--red)">⚠ Fill all fields.</span>'; return;
+  }
+  G.phishSent++;
+  const successRate = G.upgrades.spellcheck ? 0.55 : 0.3;
+  const success = Math.random() < successRate;
+  if(success){
+    const reward = Math.floor(8*G.multiplier + Math.random()*15);
+    earnDD(reward, document.getElementById('c-to'));
+    G.phishSuccess++;
+    G.scamsRun++;
+    addLog(`Phish email to ${to} — SUCCESS +${reward}DD`, 'pos');
+    notify('📧 Phish Landed!',`${to} took the bait. +${reward} DD`,'success');
+    if(res) res.innerHTML=`<span style="color:var(--green)">✓ Hook set. Victim is biting... +${reward} DD</span>`;
+    gainXP(15);
+    addWanted(0.5);
+  } else {
+    addLog(`Phish email to ${to} — FAILED (marked as spam)`, 'neg');
+    if(res) res.innerHTML=`<span style="color:var(--red)">✗ Blocked by spam filter. Upgrade your kit.</span>`;
+  }
+  sentEmails.unshift({ id:Date.now(), sender:'you@kihtirh.net', subject:subj, time:now(), body, unread:false });
+}
+
+function openPhishStudio() { openWindow('phish'); }
+
+// ═══════════════════════════════════════════
+// BROWSER
+// ═══════════════════════════════════════════
+const fakeSites = {
+  'bank.spoofed': { type:'bank', name:'SecureBank Online', tag:'Fake banking portal' },
+  'darkshop.onion': { type:'darkshop' },
+  'help.darknet': { type:'help' },
+};
+let browserUrl = 'about://home';
+
+function renderBrowser(container) {
+  container.innerHTML = `
+    <div class="browser-bar">
+      <button class="browser-nav-btn" onclick="browserGo('about://home')">🏠</button>
+      <input id="browser-url" value="${browserUrl}" onkeydown="if(event.key==='Enter')browserGo(this.value)">
+      <button class="browser-nav-btn" onclick="browserGo(document.getElementById('browser-url').value)">▶</button>
+    </div>
+    <div class="browser-content" id="browser-page"></div>
+  `;
+  renderBrowserPage();
+}
+
+function browserGo(url) {
+  browserUrl = url.trim();
+  const urlEl = document.getElementById('browser-url');
+  if(urlEl) urlEl.value = browserUrl;
+  renderBrowserPage();
+}
+
+function renderBrowserPage() {
+  const page = document.getElementById('browser-page');
+  if(!page) return;
+  if(browserUrl === 'about://home') {
+    page.innerHTML = `
+      <div style="padding:20px;font-family:var(--font-mono)">
+        <div style="font-family:var(--font-title);font-size:22px;color:var(--green);margin-bottom:6px;letter-spacing:4px">🕸 DarkBrowser</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:20px">YOUR ANONYMOUS GATEWAY TO THE DARKWEB</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${[
+            {url:'bank.spoofed',icon:'🏦',name:'SecureBank Clone',desc:'Deploy fake bank portal'},
+            {url:'darkshop.onion',icon:'🛒',name:'Black Market',desc:'Upgrade your tools'},
+            {url:'forums.darknet',icon:'💬',name:'Scammer Forums',desc:'Tips & community'},
+            {url:'launder.crypto',icon:'💱',name:'Crypto Mixer',desc:'Launder your DD'},
+          ].map(s=>`
+            <div onclick="browserGo('${s.url}')" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:14px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-size:20px;margin-bottom:6px">${s.icon}</div>
+              <div style="font-size:11px;color:var(--green)">${s.name}</div>
+              <div style="font-size:10px;color:var(--text2);margin-top:3px">${s.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+  if(browserUrl === 'bank.spoofed') {
+    page.innerHTML = `
+      <div class="fakesite bank">
+        <div class="header">
+          <div>
+            <div class="logo">🏦 SECUREBANK</div>
+            <div class="tagline">Your trusted online banking partner</div>
+          </div>
+          <div style="margin-left:auto;font-size:11px;opacity:0.7">🔒 https://secure.securebank.com</div>
+        </div>
+        <div class="body">
+          <div class="login-box">
+            <h2>Online Banking Login</h2>
+            <input class="fake-input" id="fake-user" placeholder="Username or Account Number">
+            <input class="fake-input" type="password" id="fake-pass" placeholder="Password">
+            <input class="fake-input" id="fake-dob" placeholder="Date of Birth (MM/DD/YYYY)">
+            <button class="fake-btn" onclick="harvestCreds()">Sign In →</button>
+            <div class="ssl-badge">🔒 256-bit SSL Encrypted &nbsp;|&nbsp; FDIC Insured</div>
+            <div style="font-size:10px;color:#999;margin-top:8px;text-align:center">Forgot password? | Register | Help</div>
+          </div>
+          <div id="harvest-msg" style="text-align:center;margin-top:12px;font-size:12px"></div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  if(browserUrl === 'forums.darknet') {
+    page.innerHTML = `
+      <div style="padding:16px;font-family:var(--font-mono)">
+        <div style="font-size:13px;color:var(--green);margin-bottom:14px">📋 DARKNET FORUMS — /r/scammers</div>
+        ${[
+          { user:'0xGhost99', post:'Just made 400DD in one hour with the bank clone method. Key is the SSL badge lmao', time:'2m ago', ups:47 },
+          { user:'ph1sh_m4ster', post:'Pro tip: send emails on Tuesday morning. Highest open rate. Use corporate sender names.', time:'15m ago', ups:123 },
+          { user:'lazyh4x', post:'Anyone else having issues with the VPN dropping? Getting flagged after 5 ops in a row', time:'1h ago', ups:8 },
+          { user:'kr1ptonian', post:'Botnet with 500 nodes = passive 40DD/min. Worth every penny on the black market.', time:'3h ago', ups:201 },
+          { user:'anon7734', post:'New to this? Start with phishing. Low risk, decent returns. Upgrade your kit ASAP.', time:'5h ago', ups:89 },
+        ].map(p=>`
+          <div style="border-bottom:1px solid var(--border);padding:10px 0">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+              <span style="color:var(--green);font-size:11px">@${p.user}</span>
+              <span style="color:#224;font-size:10px">${p.time}</span>
+              <span style="margin-left:auto;color:var(--yellow);font-size:10px">▲ ${p.ups}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text);line-height:1.6">${p.post}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    return;
+  }
+  if(browserUrl === 'launder.crypto') {
+    page.innerHTML = `
+      <div style="padding:20px;font-family:var(--font-mono)">
+        <div style="font-size:14px;color:var(--green);margin-bottom:6px;letter-spacing:2px">💱 CRYPTO MIXER v2.1</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:16px">Anonymize your earnings. 15% fee. No questions asked.</div>
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:16px">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:6px">AMOUNT TO LAUNDER (DD)</label>
+          <input id="launder-amt" type="number" placeholder="Enter amount..." style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:8px 12px;border-radius:3px;outline:none;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text2);margin-bottom:10px">Fee: 15% &nbsp;|&nbsp; You receive: <span id="launder-out" style="color:var(--yellow)">0 DD</span></div>
+          <button class="btn" onclick="doLaunder()">💱 LAUNDER NOW</button>
+          <div style="font-size:10px;color:var(--text2);margin-top:10px">Laundering reduces your Wanted Level by ⭐ 1 star</div>
+          <div id="launder-msg" style="margin-top:10px;font-size:11px"></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('launder-amt').addEventListener('input', function(){
+      document.getElementById('launder-out').textContent = Math.floor(this.value * 0.85)+' DD';
+    });
+    return;
+  }
+  page.innerHTML = `<div style="padding:30px;text-align:center;color:var(--text2);font-size:12px">
+    <div style="font-size:30px;margin-bottom:12px">⚠️</div>
+    <div>Cannot connect to: ${browserUrl}</div>
+    <div style="font-size:10px;margin-top:8px">Host unreachable or requires special access</div>
+  </div>`;
+}
+
+function harvestCreds() {
+  const u = document.getElementById('fake-user')?.value;
+  const p = document.getElementById('fake-pass')?.value;
+  const d = document.getElementById('fake-dob')?.value;
+  const msg = document.getElementById('harvest-msg');
+  if(!u&&!p) { if(msg) msg.innerHTML='<span style="color:#c00">Please fill in all fields.</span>'; return; }
+  const reward = Math.floor(25*G.multiplier + Math.random()*30);
+  earnDD(reward, document.getElementById('fake-user'));
+  G.scamsRun++;
+  addLog(`Bank creds harvested. Account: ${u||'?'} — +${reward}DD`, 'pos');
+  notify('🏦 Credentials Harvested!',`Account compromised. +${reward} DD`,'success');
+  gainXP(25);
+  addWanted(1.5);
+  if(msg) msg.innerHTML=`<span style="color:green;font-size:13px">✓ Login successful. Redirecting...</span>`;
+  setTimeout(()=>{
+    if(msg) msg.innerHTML='';
+    if(document.getElementById('fake-user')) document.getElementById('fake-user').value='';
+    if(document.getElementById('fake-pass')) document.getElementById('fake-pass').value='';
+    if(document.getElementById('fake-dob')) document.getElementById('fake-dob').value='';
+  }, 2000);
+}
+
+function doLaunder() {
+  const amt = parseInt(document.getElementById('launder-amt')?.value)||0;
+  const msg = document.getElementById('launder-msg');
+  if(amt < 50) { if(msg) msg.innerHTML='<span style="color:var(--red)">Minimum 50 DD to launder.</span>'; return; }
+  if(amt > G.dd) { if(msg) msg.innerHTML='<span style="color:var(--red)">Insufficient DD balance.</span>'; return; }
+  const fee = Math.floor(amt*0.15);
+  G.dd -= fee;
+  updateUI();
+  if(G.wantedLevel > 0) { G.wantedLevel = Math.max(0, G.wantedLevel-1); updateWanted(); }
+  addLog(`Laundered ${amt}DD (fee: ${fee}DD). Wanted level reduced.`, 'warn');
+  notify('💱 Laundering Complete',`-${fee} DD fee. Heat reduced.`,'warn');
+  if(msg) msg.innerHTML=`<span style="color:var(--green)">✓ Cleaned. -${fee} DD fee. Heat reduced.</span>`;
+}
+
+// ═══════════════════════════════════════════
+// TERMINAL
+// ═══════════════════════════════════════════
+let termHistory = [];
+let termHIdx = -1;
+const termCommands = {
+  help: ()=>[
+    {t:'output',m:'Available commands:'},
+    {t:'output',m:'  scan       — Scan for vulnerable targets'},
+    {t:'output',m:'  phish      — Quick phish a random target'},
+    {t:'output',m:'  probe      — Probe target\'s network'},
+    {t:'output',m:'  crack      — Attempt password crack (costs 5 DD)'},
+    {t:'output',m:'  stats      — Show your stats'},
+    {t:'output',m:'  clear      — Clear terminal'},
+    {t:'output',m:'  whoami     — Identity info'},
+    {t:'output',m:'  wanted     — Check wanted level'},
+  ],
+  whoami: ()=>[{t:'success',m:`Operator: UNKNOWN | Level: ${G.level} | Rank: ${getRank(G.level)} | DD: ${G.dd}`}],
+  stats: ()=>[
+    {t:'output',m:`DD Balance:     ${G.dd}`},
+    {t:'output',m:`Total Earned:   ${G.totalEarned}`},
+    {t:'output',m:`Scams Run:      ${G.scamsRun}`},
+    {t:'output',m:`Phish Sent:     ${G.phishSent}`},
+    {t:'output',m:`Phish Success:  ${G.phishSuccess}`},
+  ],
+  wanted: ()=>[{t: G.wantedLevel>=4 ? 'error' : G.wantedLevel>=2 ? 'warn' : 'success', m:`Wanted Level: ${'★'.repeat(G.wantedLevel)}${'☆'.repeat(5-G.wantedLevel)} (${['CLEAN','LOW','MODERATE','HIGH','CRITICAL','MAXIMUM'][G.wantedLevel]})`}],
+  scan: async function*() {
+    const targets = ['192.168.1.'+Math.floor(Math.random()*254), 'corp-mail.company.io', 'bank-portal-dev.local', '10.0.0.'+Math.floor(Math.random()*254)];
+    yield {t:'output',m:'Initiating network scan...'};
+    await sleep(400);
+    yield {t:'output',m:'Port scanning...'};
+    await sleep(600);
+    for(const t of targets) {
+      await sleep(200+Math.random()*300);
+      const vuln = Math.random() > 0.5;
+      yield {t: vuln?'warn':'output', m:`${t.padEnd(30)} ${vuln?'[VULNERABLE] ⚠':'[SECURE]'}`};
+    }
+    yield {t:'success',m:'Scan complete. '+targets.filter(()=>Math.random()>0.5).length+' targets identified.'};
+    gainXP(5);
+  },
+  phish: async function*() {
+    const emails2 = ['john.smith@megacorp.com','hr@globalfirm.org','accounts@townbank.net','info@medcentre.org'];
+    const target = emails2[Math.floor(Math.random()*emails2.length)];
+    yield {t:'output',m:`Composing phish email to: ${target}`};
+    
+    yield {t:'output',m:'Spoofing sender identity...'};
+    await sleep(400);
+    yield {t:'output',m:'Injecting payload link...'};
+    await sleep(600);
+    const success = Math.random() < (G.upgrades.spellcheck ? 0.5 : 0.28);
+    if(success) {
+      const reward = Math.floor(6*G.multiplier+Math.random()*12);
+      earnDD(reward, null);
+      G.phishSent++; G.phishSuccess++; G.scamsRun++;
+      gainXP(12);
+      addWanted(0.4);
+      yield {t:'success',m:`TARGET HOOKED. +${reward} DD`};
+    } else {
+      G.phishSent++;
+      yield {t:'error',m:'Email flagged by spam filter. Mission failed.'};
+    }
+  },
+  probe: async function*() {
+    yield {t:'output',m:'Probing target infrastructure...'};
+    await sleep(800);
+    yield {t:'warn',m:'Port 22 (SSH): Open'};
+    await sleep(300);
+    yield {t:'output',m:'Port 80 (HTTP): Open'};
+    await sleep(300);
+    yield {t:'output',m:'Port 443 (HTTPS): Open'};
+    await sleep(400);
+    yield {t:'success',m:'Probe complete. Vulnerability report saved.'};
+    gainXP(8);
+  },
+  crack: async function*() {
+    if(G.dd < 5) { yield {t:'error',m:'Insufficient DD. Need 5 DD.'}; return; }
+    G.dd -= 5; updateUI();
+    yield {t:'output',m:'Loading wordlist... (rockyou.txt 14.3M entries)'};
+    await sleep(700);
+    yield {t:'warn',m:'Attempting bruteforce...'};
+    await sleep(900);
+    const success = Math.random() > 0.45;
+    if(success) {
+      const reward = Math.floor(20*G.multiplier+Math.random()*20);
+      earnDD(reward, null);
+      G.scamsRun++;
+      gainXP(20);
+      addWanted(1);
+      yield {t:'success',m:`PASSWORD CRACKED! Reward: +${reward} DD`};
+    } else {
+      yield {t:'error',m:'Brute force failed. Account locked after 10 attempts.'};
+    }
+  },
+  clear: 'CLEAR',
+};
+
+function renderTerminal(container) {
+  container.innerHTML = `
+    <div class="terminal-body" id="term-output"></div>
+    <div style="padding:4px 12px;background:#000;border-top:1px solid #001100">
+      <div class="terminal-input-line">
+        <span class="prompt">root@kihtirh:~$</span>
+        <input id="term-input" autocomplete="off" spellcheck="false" onkeydown="termKey(event)">
+      </div>
+    </div>
+  `;
+  termPrint({t:'success',m:'Kihtirh Terminal v1.0 — Type "help" for commands'});
+  termPrint({t:'output',m:'─'.repeat(42)});
+  setTimeout(()=>document.getElementById('term-input')?.focus(), 100);
+}
+
+function termPrint(line) {
+  const out = document.getElementById('term-output');
+  if(!out) return;
+  const d = document.createElement('div');
+  d.className = `terminal-line ${line.t}`;
+  d.textContent = line.m;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+
+async function termKey(e) {
+  if(e.key === 'ArrowUp') {
+    termHIdx = Math.min(termHIdx+1, termHistory.length-1);
+    e.target.value = termHistory[termHIdx]||''; return;
+  }
+  if(e.key === 'ArrowDown') {
+    termHIdx = Math.max(termHIdx-1, -1);
+    e.target.value = termHistory[termHIdx]||''; return;
+  }
+  if(e.key !== 'Enter') return;
+  const input = e.target.value.trim();
+  if(!input) return;
+  termHistory.unshift(input); termHIdx = -1;
+  e.target.value = '';
+  termPrint({t:'cmd',m:`root@kihtirh:~$ ${input}`});
+  const cmd = termCommands[input.toLowerCase()];
+  if(!cmd) { termPrint({t:'error',m:`Command not found: ${input}. Type "help".`}); return; }
+  if(cmd === 'CLEAR') {
+    const out = document.getElementById('term-output');
+    if(out) out.innerHTML = ''; return;
+  }
+  if(typeof cmd === 'function') {
+    const result = cmd();
+    if(result && typeof result[Symbol.asyncIterator] === 'function') {
+      for await (const line of result) termPrint(line);
+    } else if(Array.isArray(result)) {
+      result.forEach(l=>termPrint(l));
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// SCAM OPS
+// ═══════════════════════════════════════════
+const OPS_DATA = [
+  {
+    id:'spam_blast', name:'Spam Blast', icon:'📨', reward:[5,15], xp:10, cooldown:8000, wantedGain:0.3,
+    desc:'Blast out 1000 spam emails. Low risk, moderate return. Bread and butter.',
+    requires: null,
+    progress: 5000,
+  },
+  {
+    id:'bank_phish', name:'Bank Phishing', icon:'🏦', reward:[18,35], xp:20, cooldown:15000, wantedGain:0.8,
+    desc:'Deploy fake banking portal. High success with phish kit.',
+    requires: null,
+    progress: 10000,
+  },
+  {
+    id:'prize_scam', name:'Prize Scam', icon:'🎰', reward:[12,28], xp:15, cooldown:12000, wantedGain:0.5,
+    desc:'"Congratulations! You have won..." Classic but effective.',
+    requires: null,
+    progress: 8000,
+  },
+  {
+    id:'tech_support', name:'Tech Support', icon:'🖥️', reward:[25,55], xp:30, cooldown:20000, wantedGain:1.2,
+    desc:'Call victims claiming their PC has a virus. Get remote access.',
+    requires: { level: 2 },
+    progress: 12000,
+  },
+  {
+    id:'romance_scam', name:'Romance Con', icon:'💘', reward:[40,80], xp:45, cooldown:30000, wantedGain:1.8,
+    desc:'Long game. Build trust, then strike. Maximum DD per op.',
+    requires: { level: 3 },
+    progress: 18000,
+  },
+  {
+    id:'crypto_pump', name:'Crypto Pump', icon:'📈', reward:[60,120], xp:60, cooldown:45000, wantedGain:2.5,
+    desc:'Fake crypto project. Pump and dump. Massive returns, massive risk.',
+    requires: { level: 4, upgrade:'identityPack' },
+    progress: 25000,
+  },
+];
+
+let opTimers = {};
+
+function renderOps(container) {
+  container.innerHTML = `
+    <div class="section-header"><div class="dot"></div>ACTIVE OPERATIONS <span style="margin-left:auto;color:var(--yellow)">Passive: +${G.passiveIncome.toFixed(1)} DD/s</span></div>
+    <div class="mission-list" id="ops-list"></div>
+  `;
+  refreshOpsList();
+}
+
+function refreshOpsList() {
+  const list = document.getElementById('ops-list');
+  if(!list) return;
+  list.innerHTML = OPS_DATA.map(op=>{
+    const locked = op.requires && (
+      (op.requires.level && G.level < op.requires.level) ||
+      (op.requires.upgrade && !G.upgrades[op.requires.upgrade])
+    );
+    const running = opTimers[op.id];
+    const elapsed = running ? Date.now() - running.start : 0;
+    const pct = running ? Math.min(100, (elapsed/op.progress)*100) : 0;
+    const remaining = running ? Math.max(0, Math.ceil((op.progress - elapsed)/1000)) : 0;
+    const reward = Math.floor((op.reward[0] + op.reward[1])/2 * G.multiplier);
+    return `
+      <div class="mission ${locked?'locked':''} ${running?'active':''}" id="op-${op.id}">
+        <div class="m-header">
+          <span class="m-icon">${op.icon}</span>
+          <span class="m-name">${op.name}</span>
+          <span class="m-reward">~${reward} DD</span>
+        </div>
+        <div class="m-desc">${op.desc}${locked?`<br><span style="color:var(--red)">🔒 Requires ${op.requires.level?'Level '+op.requires.level:''}${op.requires.upgrade?' + '+op.requires.upgrade:''}</span>`:''}</div>
+        <div class="m-progress-wrap"><div class="m-progress" style="width:${pct}%"></div></div>
+        ${running ? `<span class="m-cooldown">⏳ ${remaining}s remaining...</span>` :
+          `<button class="m-btn ${locked?'':''}${running?'running':''}" ${locked||running?'disabled':''} onclick="runOp('${op.id}')">▶ EXECUTE</button>`}
+      </div>
+    `;
+  }).join('');
+}
+
+function runOp(id) {
+  const op = OPS_DATA.find(o=>o.id===id);
+  if(!op || opTimers[id]) return;
+  opTimers[id] = { start: Date.now() };
+  addLog(`Operation ${op.name} started...`, 'warn');
+  refreshOpsList();
+  const interval = setInterval(()=>{ refreshOpsList(); }, 500);
+  setTimeout(()=>{
+    clearInterval(interval);
+    delete opTimers[id];
+    const bonus = G.upgrades.phishKit && id==='bank_phish' ? 1.4 : 1;
+    const reward = Math.floor((op.reward[0] + Math.random()*(op.reward[1]-op.reward[0]))*G.multiplier*bonus);
+    earnDD(reward, null);
+    G.scamsRun++;
+    gainXP(op.xp);
+    addWanted(op.wantedGain);
+    notify(`${op.icon} ${op.name} Complete!`,`+${reward} DD earned`,'success');
+    addLog(`${op.name} completed — +${reward}DD`, 'pos');
+    refreshOpsList();
+    if(document.getElementById('wbody-stats')) renderStats(document.getElementById('wbody-stats'));
+  }, op.progress);
+}
+
+// ═══════════════════════════════════════════
+// SHOP
+// ═══════════════════════════════════════════
+const SHOP_ITEMS = [
+  {
+    id:'spellcheck', name:'Spell Checker Pro', icon:'✏️', cost:30, effect:'+25% phish success rate',
+    desc:'Fixes typos in phishing emails. Victims are less suspicious.',
+    requires: null,
+  },
+  {
+    id:'vpn', name:'VPN Bundle', icon:'🛡️', cost:50, effect:'Wanted gain -30%',
+    desc:'Route all traffic through 5 proxy layers. Stay under the radar.',
+    requires: null,
+  },
+  {
+    id:'phishKit', name:'Phish Kit v2', icon:'🎣', cost:80, effect:'+40% bank phish reward',
+    desc:'Professional template set. Convincing enough to fool IT departments.',
+    requires: null,
+  },
+  {
+    id:'identityPack', name:'Identity Pack', icon:'🪪', cost:150, effect:'Unlocks Crypto Pump op',
+    desc:'Stolen identities for high-level operations. No questions asked.',
+    requires: { level: 3 },
+  },
+  {
+    id:'burnerPhones', name:'Burner Phones', icon:'📱', cost:120, effect:'+1.5 DD/sec passive',
+    desc:'Network of burner phones running SMS scams 24/7.',
+    requires: { level: 2 },
+  },
+  {
+    id:'botnet', name:'Botnet (100 nodes)', icon:'🤖', cost:300, effect:'+5 DD/sec passive',
+    desc:'Automated spam/phish army. Money while you sleep.',
+    requires: { level: 4 },
+  },
+];
+
+function renderShop(container) {
+  container.innerHTML = `
+    <div class="section-header"><div class="dot"></div>BLACK MARKET <span style="margin-left:auto;color:var(--yellow)">Balance: ${G.dd} DD</span></div>
+    <div class="shop-grid">
+      ${SHOP_ITEMS.map(item=>{
+        const locked = item.requires && item.requires.level && G.level < item.requires.level;
+        const purchased = G.upgrades[item.id];
+        return `
+          <div class="shop-item ${locked?'locked':''} ${purchased?'purchased':''}" onclick="${locked||purchased?'':''} buyItem('${item.id}')">
+            ${purchased?'<div class="purchased-badge">✓ OWNED</div>':''}
+            <div class="item-icon">${item.icon}</div>
+            <div class="item-name">${item.name}</div>
+            <div class="item-desc">${item.desc}</div>
+            <div class="item-cost">${purchased?'—':locked?`🔒 Level ${item.requires.level} req.`:`💰 ${item.cost} DD`}</div>
+            <div class="item-effect">${item.effect}</div>
+            ${locked?`<div class="lock-reason">Need Level ${item.requires.level}</div>`:''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function buyItem(id) {
+  const item = SHOP_ITEMS.find(i=>i.id===id);
+  if(!item) return;
+  if(G.upgrades[id]) { notify('Already Owned','You already have this upgrade.','warn'); return; }
+  if(G.dd < item.cost) { notify('Insufficient Funds',`Need ${item.cost} DD. Have ${G.dd} DD.`,'error'); return; }
+  if(item.requires?.level && G.level < item.requires.level) { notify('Level Too Low',`Need Level ${item.requires.level}.`,'error'); return; }
+  G.dd -= item.cost;
+  G.upgrades[id] = true;
+  // Apply effects
+  if(id === 'burnerPhones') G.passiveIncome += 1.5;
+  if(id === 'botnet') G.passiveIncome += 5;
+  if(id === 'vpn') G.multiplier += 0;
+  updateUI();
+  notify(`${item.icon} Purchased!`,`${item.name} activated.`,'success');
+  addLog(`Purchased: ${item.name}`, 'pos');
+  gainXP(20);
+  if(document.getElementById('wbody-shop')) renderShop(document.getElementById('wbody-shop'));
+}
+
+// ═══════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════
+function renderStats(container) {
+  const pctToNext = Math.round(G.xp/G.xpNext*100);
+  container.innerHTML = `
+    <div class="section-header"><div class="dot"></div>OPERATOR DASHBOARD</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="s-label">DD BALANCE</div><div class="s-value" style="color:var(--yellow)">${G.dd}</div><div class="s-sub">+${G.passiveIncome.toFixed(1)}/sec passive</div></div>
+      <div class="stat-card"><div class="s-label">TOTAL EARNED</div><div class="s-value">${G.totalEarned}</div><div class="s-sub">lifetime</div></div>
+      <div class="stat-card"><div class="s-label">LEVEL</div><div class="s-value" style="color:var(--purple)">${G.level}</div><div class="s-sub">${getRank(G.level)}</div></div>
+      <div class="stat-card"><div class="s-label">XP PROGRESS</div><div class="s-value" style="font-size:16px">${G.xp}/${G.xpNext}</div><div class="s-sub">${pctToNext}% to next level</div></div>
+      <div class="stat-card"><div class="s-label">SCAMS RUN</div><div class="s-value">${G.scamsRun}</div><div class="s-sub">operations total</div></div>
+      <div class="stat-card"><div class="s-label">PHISH SUCCESS</div><div class="s-value">${G.phishSuccess}</div><div class="s-sub">/ ${G.phishSent} sent (${G.phishSent>0?Math.round(G.phishSuccess/G.phishSent*100):0}%)</div></div>
+    </div>
+    <div class="section-header" style="margin-top:2px"><div class="dot"></div>RECENT ACTIVITY</div>
+    <div class="activity-log">
+      ${G.log.slice(0,12).map(l=>`
+        <div class="entry">
+          <span class="ts">${l.time}</span>
+          <span class="msg ${l.type}">${l.msg}</span>
+        </div>
+      `).join('') || '<div style="color:#224;padding:10px">No activity yet.</div>'}
+    </div>
+    <div class="section-header"><div class="dot"></div>UPGRADES</div>
+    <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
+      ${SHOP_ITEMS.map(i=>`<span style="padding:3px 8px;border-radius:3px;font-size:10px;background:${G.upgrades[i.id]?'var(--green3)':'var(--panel2)'};border:1px solid ${G.upgrades[i.id]?'var(--green)':'var(--border)'};color:${G.upgrades[i.id]?'var(--green)':'var(--text2)'}">${i.icon} ${i.name}</span>`).join('')}
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════
+// PHISHING STUDIO
+// ═══════════════════════════════════════════
+const PHISH_TEMPLATES = {
+  bank: { subject:'URGENT: Verify your account now', body:`Dear Customer,\n\nWe detected unusual activity on your account. Your account has been temporarily limited.\n\nPlease verify your identity within 24 hours to restore access.\n\nClick here: http://secure-[BANK]-verify.com/login\n\nSecureBank Security Team` },
+  prize: { subject:'You\'ve been selected for a reward!', body:`Congratulations!\n\nYour email was randomly selected from 2,400,000 entries.\n\nYou have WON $500 in gift cards. Claim your prize within 48 hours.\n\nClick here to claim: http://winner-claim-now.com/your-prize\n\nPromo Team` },
+  it: { subject:'[IT DEPT] Your password expires in 24 hours', body:`Hello,\n\nThis is the IT department. Your network password will expire in 24 hours.\n\nTo avoid losing access, please update your credentials now:\nhttp://corp-helpdesk-portal.com/reset\n\nIT Support Team` },
+};
+
+function renderPhish(container) {
+  const tmpl = PHISH_TEMPLATES.bank;
+  container.innerHTML = `
+    <div class="section-header"><div class="dot"></div>PHISHING STUDIO — CRAFT YOUR HOOK</div>
+    <div class="phish-game">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <div class="phish-editor">
+            <label>TEMPLATE</label>
+            <select id="phish-tmpl" onchange="updatePhishPreview()">
+              <option value="bank">🏦 Bank Alert</option>
+              <option value="prize">🎰 Prize Winner</option>
+              <option value="it">🖥️ IT Department</option>
+            </select>
+            <label>SENDER NAME</label>
+            <input id="phish-sender" value="SecureBank Security" oninput="calcSuspicion()">
+            <label>TARGET COUNT</label>
+            <input id="phish-count" type="number" value="50" min="1" max="500" oninput="calcSuspicion()">
+            <label>SUSPICION LEVEL</label>
+            <div class="suspicion-meter"><div class="suspicion-fill" id="susp-fill" style="width:40%;background:#ffaa00"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text2)"><span>LOW</span><span id="susp-label">MEDIUM</span><span>HIGH</span></div>
+            <div style="margin-top:12px">
+              <div style="font-size:10px;color:var(--text2);margin-bottom:6px">ESTIMATED RESULTS (based on ${G.upgrades.spellcheck?'UPGRADED':'BASIC'} kit):</div>
+              <div id="phish-estimate" style="font-size:11px;color:var(--green)"></div>
+            </div>
+          </div>
+          <button class="btn" style="width:100%;margin-top:10px" onclick="launchPhishCampaign()">🚀 LAUNCH CAMPAIGN</button>
+          <div id="phish-result" style="margin-top:8px;font-size:11px"></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;letter-spacing:1px">PREVIEW</div>
+          <div class="email-template" id="phish-preview"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  updatePhishPreview();
+  calcSuspicion();
+}
+
+function updatePhishPreview() {
+  const type = document.getElementById('phish-tmpl')?.value || 'bank';
+  const tmpl = PHISH_TEMPLATES[type];
+  const preview = document.getElementById('phish-preview');
+  if(!preview) return;
+  preview.innerHTML = `
+    <div style="border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:8px">
+      <strong>From:</strong> ${document.getElementById('phish-sender')?.value||'Unknown'}<br>
+      <strong>Subject:</strong> ${tmpl.subject}
+    </div>
+    <div style="white-space:pre-line;font-size:12px">${tmpl.body}</div>
+  `;
+  calcSuspicion();
+}
+
+function calcSuspicion() {
+  const count = parseInt(document.getElementById('phish-count')?.value)||50;
+  const sender = document.getElementById('phish-sender')?.value||'';
+  let susp = 30;
+  if(count > 200) susp += 30;
+  else if(count > 100) susp += 15;
+  if(sender.includes('bank')||sender.includes('Bank')) susp += 10;
+  if(G.upgrades.spellcheck) susp -= 15;
+  if(G.upgrades.vpn) susp -= 10;
+  susp = Math.max(5, Math.min(95, susp));
+  const fill = document.getElementById('susp-fill');
+  const label = document.getElementById('susp-label');
+  if(fill) { fill.style.width = susp+'%'; fill.style.background = susp > 70 ? '#ff3366' : susp > 40 ? '#ffaa00' : '#00ff88'; }
+  if(label) label.textContent = susp > 70 ? 'HIGH' : susp > 40 ? 'MEDIUM' : 'LOW';
+  const baseRate = G.upgrades.spellcheck ? 0.5 : 0.3;
+  const successRate = Math.max(0.05, baseRate - susp/300);
+  const expected = Math.floor(count * successRate);
+  const rewardPer = Math.floor(8*G.multiplier);
+  const est = document.getElementById('phish-estimate');
+  if(est) est.innerHTML = `Expected hooks: ~${expected}<br>Est. reward: ~${expected*rewardPer} DD<br>Wanted gain: +${(count/100).toFixed(1)}⭐`;
+}
+
+function launchPhishCampaign() {
+  const count = parseInt(document.getElementById('phish-count')?.value)||50;
+  const type = document.getElementById('phish-tmpl')?.value||'bank';
+  const baseRate = G.upgrades.spellcheck ? 0.5 : 0.3;
+  let susp = 30;
+  if(count > 200) susp += 30; else if(count > 100) susp += 15;
+  if(G.upgrades.spellcheck) susp -= 15;
+  if(G.upgrades.vpn) susp -= 10;
+  const successRate = Math.max(0.05, baseRate - susp/300);
+  const hooks = Math.floor(count * successRate * (0.8+Math.random()*0.4));
+  const reward = Math.floor(hooks * 8 * G.multiplier);
+  earnDD(reward, null);
+  G.phishSent += count;
+  G.phishSuccess += hooks;
+  G.scamsRun++;
+  gainXP(hooks * 3);
+  addWanted(count/100);
+  const result = document.getElementById('phish-result');
+  if(result) result.innerHTML = `<span style="color:var(--green)">✓ Campaign sent. ${hooks}/${count} hooked. +${reward} DD</span>`;
+  notify('🎣 Campaign Complete!',`${hooks} victims hooked. +${reward} DD`,'success');
+  addLog(`Phish campaign (${type}): ${hooks}/${count} hooked +${reward}DD`, 'pos');
+}
+
+// ═══════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════
+function earnDD(amount, anchorEl) {
+  G.dd += amount;
+  G.totalEarned += amount;
+  updateUI();
+  // Float animation
+  if(anchorEl) {
+    const rect = anchorEl.getBoundingClientRect();
+    spawnDDFloat(rect.left, rect.top, amount);
+  } else {
+    spawnDDFloat(window.innerWidth/2+Math.random()*100-50, window.innerHeight/2, amount);
+  }
+}
+
+function spawnDDFloat(x, y, amount) {
+  const el = document.createElement('div');
+  el.className = 'dd-float';
+  el.textContent = '+'+amount+' DD';
+  el.style.left = x+'px';
+  el.style.top = y+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1400);
+}
+
+function gainXP(amount) {
+  G.xp += amount;
+  while(G.xp >= G.xpNext) {
+    G.xp -= G.xpNext;
+    G.level++;
+    G.xpNext = Math.floor(G.xpNext * 1.5);
+    G.multiplier = 1 + (G.level-1)*0.15;
+    updateUI();
+    notify('⬆ LEVEL UP!',`Level ${G.level} — ${getRank(G.level)}. Multiplier: x${G.multiplier.toFixed(2)}`,'info');
+    addLog(`LEVEL UP → Level ${G.level}: ${getRank(G.level)}`, 'pos');
+    if(document.getElementById('wbody-shop')) renderShop(document.getElementById('wbody-shop'));
+    if(document.getElementById('wbody-ops')) renderOps(document.getElementById('wbody-ops'));
+  }
+  updateXPBar();
+}
+
+function addWanted(amount) {
+  if(G.upgrades.vpn) amount *= 0.6;
+  G.wantedLevel = Math.min(5, G.wantedLevel + amount);
+  updateWanted();
+  if(G.wantedLevel >= 5) {
+    notify('🚨 MAXIMUM WANTED!','LEO closing in. Launder your DD or lay low!','error');
+  }
+}
+
+function updateWanted() {
+  for(let i=1;i<=5;i++) {
+    const star = document.getElementById('ws'+i);
+    if(star) star.className = 'wanted-star' + (G.wantedLevel >= i ? ' active' : '');
+  }
+}
+
+function addLog(msg, type) {
+  G.log.unshift({ time: now(), msg, type });
+  if(G.log.length > 50) G.log.pop();
+}
+
+function now() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')+':'+d.getSeconds().toString().padStart(2,'0');
+}
+
+function updateUI() {
+  document.getElementById('dd-display').textContent = Math.floor(G.dd);
+  document.getElementById('level-num').textContent = G.level;
+  document.getElementById('rank-name').textContent = getRank(G.level);
+  updateHUD();
+}
+
+function updateXPBar() {
+  const pct = Math.min(100, (G.xp/G.xpNext)*100);
+  document.getElementById('xp-bar').style.width = pct+'%';
+}
+
+// ═══════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════
+function notify(title, body, type='success') {
+  const c = document.getElementById('notif-container');
+  const n = document.createElement('div');
+  n.className = `notif ${type}`;
+  n.innerHTML = `<div class="n-title">${title}</div><div class="n-body">${body}</div>`;
+  c.appendChild(n);
+  n.addEventListener('click', ()=>n.remove());
+  setTimeout(()=>{
+    n.style.animation = 'notifOut 0.3s forwards';
+    setTimeout(()=>n.remove(), 300);
+  }, 3500);
+}
+
+// ═══════════════════════════════════════════
+// PASSIVE INCOME & CLOCK
+// ═══════════════════════════════════════════
+let lastPassive = Date.now();
+let clockEl;
+
+function gameLoop() {
+  const now2 = Date.now();
+  const delta = (now2 - lastPassive)/1000;
+  lastPassive = now2;
+  G.gameTime += delta;
+  if(G.passiveIncome > 0) {
+    const income = G.passiveIncome * delta;
+    G.dd += income;
+    G.totalEarned += income;
+    document.getElementById('dd-display').textContent = Math.floor(G.dd);
+  }
+  // Wanted decay
+  if(G.wantedLevel > 0) {
+    G.wantedLevel = Math.max(0, G.wantedLevel - 0.002*delta);
+    updateWanted();
+  }
+  // Clock
+  const t = new Date();
+  const tc = document.getElementById('tb-clock');
+  if(tc) tc.textContent = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
+  updateHUD();
+  requestAnimationFrame(gameLoop);
+}
+
+// ═══════════════════════════════════════════
+// RANDOM EVENTS
+// ═══════════════════════════════════════════
+const EVENTS = [
+  { prob:0.3, fn:()=>{ const r=Math.floor(5+Math.random()*15); earnDD(r,null); notify('💌 Phish Landed','Someone clicked your old link. +'+r+' DD','success'); addLog('Passive phish hit +'+r+'DD','pos'); }},
+  { prob:0.15, fn:()=>{ addWanted(0.5); notify('🚔 Police Scan','Law enforcement scanned your IP range. Wanted +0.5','warn'); }},
+  { prob:0.1, fn:()=>{ const r=Math.floor(20+Math.random()*40); earnDD(r,null); notify('🎲 Lucky Strike','Mass phish wave succeeded. +'+r+' DD','success'); }},
+  { prob:0.1, fn:()=>{ notify('📡 Anonymous Tip','A contact left info in the forums. Check DarkBrowser.','info'); }},
+];
+
+function triggerRandomEvent() {
+  for(const ev of EVENTS) {
+    if(Math.random() < ev.prob) { ev.fn(); break; }
+  }
+}
+
+// ═══════════════════════════════════════════
+// HUD
+// ═══════════════════════════════════════════
+let hudCollapsed = false;
+function toggleHUD() {
+  hudCollapsed = !hudCollapsed;
+  document.getElementById('hud').classList.toggle('collapsed', hudCollapsed);
+  document.getElementById('hud-toggle-icon').textContent = hudCollapsed ? '▼' : '▲';
+}
+function updateHUD() {
+  document.getElementById('hud-dd').textContent = Math.floor(G.dd) + ' DD';
+  document.getElementById('hud-passive').textContent = G.passiveIncome.toFixed(1) + '/s';
+  document.getElementById('hud-lvl').textContent = G.level + ' — ' + getRank(G.level);
+  document.getElementById('hud-scams').textContent = G.scamsRun;
+  document.getElementById('hud-total').textContent = Math.floor(G.totalEarned) + ' DD';
+  const wStars = '★'.repeat(Math.ceil(G.wantedLevel)) + '☆'.repeat(Math.max(0, 5 - Math.ceil(G.wantedLevel)));
+  document.getElementById('hud-wanted').textContent = wStars;
+  document.getElementById('hud-xpbar').style.width = Math.min(100, (G.xp / G.xpNext) * 100) + '%';
+  document.getElementById('hud-wantedbar').style.width = (G.wantedLevel / 5 * 100) + '%';
+}
+
+// ═══════════════════════════════════════════
+// TUTORIAL
+// ═══════════════════════════════════════════
+const TUTORIAL_STEPS = [
+  {
+    title: 'Welcome to Kihtirh',
+    body: 'You\'re a rookie scammer on a hacked darknet machine. Your goal: earn as much DD (DarkDollars) as possible without getting caught.',
+    tip: '💡 DD is your only currency. Earn it by running scams, phishing victims, and automating operations.',
+    highlight: null, arrow: null,
+  },
+  {
+    title: 'The Taskbar',
+    body: 'Every app on your OS is accessible from the taskbar at the bottom. Click any button to open that app. You can have multiple windows open at once.',
+    tip: '💡 Drag windows by their title bar. Resize from the bottom-right corner. Windows can\'t go off-screen.',
+    highlight: '#taskbar', arrow: 'bottom-center',
+  },
+  {
+    title: 'Scam Ops — Your Core Loop',
+    body: 'Open "Scam Ops" and click EXECUTE on any operation. It runs a timer — when it finishes, you earn DD. Start with Spam Blast since it\'s fast and low risk.',
+    tip: '💡 Higher-level ops earn more DD but increase your Wanted Level. Balance risk vs reward.',
+    highlight: null, arrow: null,
+    action: () => openWindow('ops'),
+  },
+  {
+    title: 'Mail Client — Phishing',
+    body: 'Open Mail, go to COMPOSE and fill in: a target email, subject line, and body. Click "Send Phish". If it lands, you earn DD instantly.',
+    tip: '💡 Buy "Spell Checker Pro" from the Black Market to raise your phish success rate from 30% → 55%.',
+    highlight: null, arrow: null,
+    action: () => openWindow('email'),
+  },
+  {
+    title: 'Phishing Studio',
+    body: 'Inside Mail → Compose, click "Phishing Studio" for a powerful campaign tool. Set a target count, pick a template, and launch hundreds of emails at once.',
+    tip: '💡 Watch the Suspicion Meter — higher suspicion = lower success rate. Upgrades reduce suspicion.',
+    highlight: null, arrow: null,
+    action: () => { openWindow('email'); },
+  },
+  {
+    title: 'Black Market — Upgrades',
+    body: 'Open the Black Market shop to spend DD on upgrades. Each upgrade permanently improves your operations. Priority: Spell Checker (30 DD) → VPN Bundle (50 DD).',
+    tip: '💡 The Botnet upgrade generates passive DD every second — even when you\'re not clicking anything.',
+    highlight: null, arrow: null,
+    action: () => openWindow('shop'),
+  },
+  {
+    title: 'Wanted Level & Laundering',
+    body: 'Every scam raises your ★ Wanted Level (top of taskbar). At max (5★), heat is critical. Open DarkBrowser → launder.crypto to pay a 15% fee and reduce it.',
+    tip: '💡 The VPN upgrade reduces wanted gain by 40%. Wanted level also slowly decays on its own over time.',
+    highlight: '#wanted', arrow: 'top-center',
+    action: () => openWindow('browser'),
+  },
+  {
+    title: 'Stats HUD',
+    body: 'The Stats HUD in the bottom-right corner gives you a live glance at your DD, level, scams run, and wanted level. Click the header to collapse/expand it.',
+    tip: '💡 Check the Dashboard app for full stats, activity log, and upgrade status.',
+    highlight: '#hud', arrow: null,
+  },
+];
+
+let tutStep = 0;
+
+function showTutorial() {
+  tutStep = 0;
+  document.getElementById('tutorial-overlay').style.display = 'block';
+  renderTutStep();
+}
+function hideTutorial() {
+  document.getElementById('tutorial-overlay').style.display = 'none';
+  document.getElementById('tutorial-highlight').style.display = 'none';
+  document.getElementById('tutorial-arrow').style.display = 'none';
+}
+function tutNav(dir) {
+  tutStep = Math.max(0, Math.min(TUTORIAL_STEPS.length - 1, tutStep + dir));
+  renderTutStep();
+}
+function renderTutStep() {
+  const step = TUTORIAL_STEPS[tutStep];
+  document.getElementById('tut-step-label').textContent = `STEP ${tutStep + 1} / ${TUTORIAL_STEPS.length}`;
+  document.getElementById('tut-title').textContent = step.title;
+  document.getElementById('tut-body').textContent = step.body;
+  const tipEl = document.getElementById('tut-tip');
+  if(step.tip) { tipEl.style.display = 'block'; tipEl.textContent = step.tip; }
+  else tipEl.style.display = 'none';
+  document.getElementById('tut-prev').style.opacity = tutStep === 0 ? '0.3' : '1';
+  const nextBtn = document.getElementById('tut-next');
+  nextBtn.textContent = tutStep === TUTORIAL_STEPS.length - 1 ? '✓ Done' : 'Next →';
+  if(tutStep === TUTORIAL_STEPS.length - 1) {
+    nextBtn.onclick = hideTutorial;
+  } else {
+    nextBtn.onclick = () => tutNav(1);
+  }
+  // Run optional action (open a window)
+  if(step.action) step.action();
+  // Highlight element
+  const hl = document.getElementById('tutorial-highlight');
+  const ar = document.getElementById('tutorial-arrow');
+  if(step.highlight) {
+    const target = document.querySelector(step.highlight);
+    if(target) {
+      const r = target.getBoundingClientRect();
+      hl.style.cssText = `display:block;left:${r.left-4}px;top:${r.top-4}px;width:${r.width+8}px;height:${r.height+8}px;`;
+    }
+  } else {
+    hl.style.display = 'none';
+  }
+  ar.style.display = 'none';
+  // Position tutorial box smartly
+  const box = document.getElementById('tutorial-box');
+  const bw = getDesktopBounds();
+  if(step.highlight === '#taskbar') {
+    box.style.cssText = 'bottom:52px;right:230px;top:auto;left:auto;';
+  } else if(step.highlight === '#hud') {
+    box.style.cssText = 'bottom:100px;right:230px;top:auto;left:auto;';
+  } else if(step.highlight === '#wanted') {
+    box.style.cssText = 'top:60px;right:16px;bottom:auto;left:auto;';
+  } else {
+    box.style.cssText = 'bottom:52px;right:230px;top:auto;left:auto;';
+  }
+}
+
+
+function startGame() {
+  document.getElementById('intro').style.display='none';
+  notify('🖥️ System Online','Welcome to Kihtirh. Start small. Think big.','info');
+  notify('📧 New Mail','You have 2 unread messages in your inbox.','info');
+  gameLoop();
+  setInterval(triggerRandomEvent, 12000 + Math.random()*8000);
+  setTimeout(()=>{ openWindow('ops'); openWindow('email'); }, 300);
+  setTimeout(()=>{ showTutorial(); }, 900);
+}
+
+runBoot();
+</script>
+</body>
+</html>
