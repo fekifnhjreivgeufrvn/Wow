@@ -879,6 +879,8 @@ body::before {
   <button class="tb-btn" onclick="openWindow('terminal')">💻 Terminal</button>
   <button class="tb-btn" onclick="openWindow('ops')">🎯 Scam Ops</button>
   <button class="tb-btn" onclick="openWindow('shop')">🛒 Shop</button>
+  <button class="tb-btn" onclick="openWindow('tasks')">✅ Tasks</button>
+  <button class="tb-btn" onclick="openWindow('help')">❓ Help</button>
   <button class="tb-btn" onclick="openWindow('stats')">📊 Stats</button>
   <div id="wanted">
     <span style="font-size:10px;color:var(--text2);margin-right:3px">WANTED:</span>
@@ -914,6 +916,12 @@ body::before {
     </div>
     <div class="desk-icon" ondblclick="openWindow('stats')">
       <div class="ico">📊</div><div class="lbl">Dashboard</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('tasks')">
+      <div class="ico">✅</div><div class="lbl">Tasks</div>
+    </div>
+    <div class="desk-icon" ondblclick="openWindow('help')">
+      <div class="ico">❓</div><div class="lbl">Help Desk</div>
     </div>
   </div>
 </div>
@@ -1112,6 +1120,8 @@ function openWindow(id) {
     shop:    { title:'Black Market',    icon:'🛒', w:560, h:500, render: renderShop },
     stats:   { title:'Dashboard',       icon:'📊', w:500, h:440, render: renderStats },
     phish:   { title:'Phishing Studio', icon:'🎣', w:560, h:560, render: renderPhish },
+    help:    { title:'Help Desk',       icon:'❓', w:520, h:500, render: renderHelp },
+    tasks:   { title:'Task List',       icon:'✅', w:400, h:480, render: renderTasks },
   };
   const cfg = configs[id];
   if(!cfg) return;
@@ -1424,6 +1434,7 @@ function renderBrowserPage() {
             {url:'darkshop.onion',icon:'🛒',name:'Black Market',desc:'Upgrade your tools'},
             {url:'forums.darknet',icon:'💬',name:'Scammer Forums',desc:'Tips & community'},
             {url:'launder.crypto',icon:'💱',name:'Crypto Mixer',desc:'Launder your DD'},
+            {url:'news.clearnet',icon:'📰',name:'ClearNet News',desc:'See what they\'re saying about you'},
           ].map(s=>`
             <div onclick="browserGo('${s.url}')" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:14px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
               <div style="font-size:20px;margin-bottom:6px">${s.icon}</div>
@@ -1504,6 +1515,10 @@ function renderBrowserPage() {
     document.getElementById('launder-amt').addEventListener('input', function(){
       document.getElementById('launder-out').textContent = Math.floor(this.value * 0.85)+' DD';
     });
+    return;
+  }
+  if(browserUrl === 'news.clearnet') {
+    page.innerHTML = renderNewsPage();
     return;
   }
   page.innerHTML = `<div style="padding:30px;text-align:center;color:var(--text2);font-size:12px">
@@ -1802,6 +1817,7 @@ function runOp(id) {
     addLog(`${op.name} completed — +${reward}DD`, 'pos');
     refreshOpsList();
     if(document.getElementById('wbody-stats')) renderStats(document.getElementById('wbody-stats'));
+    if(document.getElementById('wbody-tasks')) renderTasks(document.getElementById('wbody-tasks'));
   }, op.progress);
 }
 
@@ -1888,15 +1904,19 @@ function buyItem(id) {
 // ═══════════════════════════════════════════
 function renderStats(container) {
   const pctToNext = Math.round(G.xp/G.xpNext*100);
+  const dd = Math.floor(G.dd);
+  const total = Math.floor(G.totalEarned);
+  const xpCur = Math.floor(G.xp);
+  const phishPct = G.phishSent>0 ? Math.round(G.phishSuccess/G.phishSent*100) : 0;
   container.innerHTML = `
     <div class="section-header"><div class="dot"></div>OPERATOR DASHBOARD</div>
     <div class="stats-grid">
-      <div class="stat-card"><div class="s-label">DD BALANCE</div><div class="s-value" style="color:var(--yellow)">${G.dd}</div><div class="s-sub">+${G.passiveIncome.toFixed(1)}/sec passive</div></div>
-      <div class="stat-card"><div class="s-label">TOTAL EARNED</div><div class="s-value">${G.totalEarned}</div><div class="s-sub">lifetime</div></div>
+      <div class="stat-card"><div class="s-label">DD BALANCE</div><div class="s-value" style="color:var(--yellow)">${dd}</div><div class="s-sub">+${G.passiveIncome.toFixed(1)}/sec passive</div></div>
+      <div class="stat-card"><div class="s-label">TOTAL EARNED</div><div class="s-value">${total}</div><div class="s-sub">lifetime</div></div>
       <div class="stat-card"><div class="s-label">LEVEL</div><div class="s-value" style="color:var(--purple)">${G.level}</div><div class="s-sub">${getRank(G.level)}</div></div>
-      <div class="stat-card"><div class="s-label">XP PROGRESS</div><div class="s-value" style="font-size:16px">${G.xp}/${G.xpNext}</div><div class="s-sub">${pctToNext}% to next level</div></div>
+      <div class="stat-card"><div class="s-label">XP PROGRESS</div><div class="s-value" style="font-size:15px">${xpCur}/${G.xpNext}</div><div class="s-sub">${pctToNext}% to next level</div></div>
       <div class="stat-card"><div class="s-label">SCAMS RUN</div><div class="s-value">${G.scamsRun}</div><div class="s-sub">operations total</div></div>
-      <div class="stat-card"><div class="s-label">PHISH SUCCESS</div><div class="s-value">${G.phishSuccess}</div><div class="s-sub">/ ${G.phishSent} sent (${G.phishSent>0?Math.round(G.phishSuccess/G.phishSent*100):0}%)</div></div>
+      <div class="stat-card"><div class="s-label">PHISH SUCCESS</div><div class="s-value">${G.phishSuccess}</div><div class="s-sub">/ ${G.phishSent} sent (${phishPct}%)</div></div>
     </div>
     <div class="section-header" style="margin-top:2px"><div class="dot"></div>RECENT ACTIVITY</div>
     <div class="activity-log">
@@ -2146,6 +2166,7 @@ function gameLoop() {
   const tc = document.getElementById('tb-clock');
   if(tc) tc.textContent = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
   updateHUD();
+  checkTaskCompletion();
   requestAnimationFrame(gameLoop);
 }
 
@@ -2307,13 +2328,251 @@ function renderTutStep() {
 }
 
 
+
+
+// ═══════════════════════════════════════════
+// NEWS SYSTEM
+// ═══════════════════════════════════════════
+const NEWS_ARTICLES = [
+  { minScams:0, minTotal:0,
+    headline:'LOCAL MAN REPORTS SUSPICIOUS EMAIL FROM "BANK"',
+    sub:'Authorities say the email was likely part of a broader phishing attempt. No arrests made.',
+    body:`Police are warning residents to be cautious of unsolicited emails claiming to be from financial institutions. One local resident reported receiving a message asking them to verify account details via an unfamiliar link.\n\n"It looked very official," said the victim, "but something felt off."\n\nCybersecurity officials advise the public to verify sender addresses and never click links in unsolicited emails. No suspects have been identified.`,
+    severity:0, date:'Mar 3' },
+  { minScams:3, minTotal:50,
+    headline:'"PRIZE WINNER" SCAM HITS HUNDREDS OF INBOXES',
+    sub:'Spam filter logs reveal a coordinated email campaign targeting multiple cities.',
+    body:`Internet service providers are reporting an uptick in prize-related spam emails landing in customer inboxes across multiple regions. The emails promise gift card winnings and redirect to external sites.\n\nSecurity researcher Dana Voss noted the campaign appears "low sophistication but high volume."\n\n"Whoever is behind this is casting a very wide net. Most will ignore it — but statistically, someone always clicks."\n\nLaw enforcement has opened a preliminary investigation.`,
+    severity:1, date:'Mar 5' },
+  { minScams:8, minTotal:150,
+    headline:'BANKING CUSTOMERS REPORT FAKE LOGIN PAGES',
+    sub:'SecureBank issues fraud alert as credential-harvesting portals multiply.',
+    body:`SecureBank's fraud department has issued an alert after dozens of customers reported being redirected to convincing fake login pages. The spoofed sites replicate the bank's official interface with unsettling accuracy.\n\n"This is no longer a script kiddie operation," said SecureBank's Chief Security Officer. "This level of execution suggests a practiced criminal actor."\n\nFBI Cyber Division has been notified. Authorities estimate victims number in the hundreds. Total financial impact is still being calculated.`,
+    severity:2, date:'Mar 8' },
+  { minScams:18, minTotal:400,
+    headline:'CYBER FRAUD RING SUSPECTED IN MULTI-CITY ATTACK',
+    sub:'Federal investigators link phishing campaigns, fake sites, and scams to a single operator.',
+    body:`Federal investigators believe a single threat actor may be behind a wave of coordinated online fraud now affecting victims across six states. The attacks span phishing emails, fake bank portals, and tech-support phone scams — all pointing to the same infrastructure.\n\n"The footprint is consistent," said Special Agent M. Torrance of the FBI Cyber Division. "Same tactics, same money flow patterns, same professionalism."\n\nEstimated haul exceeds $80,000 in stolen funds. A warrant for digital forensic investigation has been issued. Suspects remain at large.`,
+    severity:3, date:'Mar 11' },
+  { minScams:35, minTotal:1000,
+    headline:'INTERNATIONAL FRAUD OPERATION — INTERPOL ISSUES RED NOTICE',
+    sub:'Unknown operator linked to $500K+ in global losses. Law enforcement in 12 countries activated.',
+    body:`INTERPOL has issued a Red Notice for an unknown cybercriminal whose operations have now caused financial damage exceeding half a million dollars across 12 countries.\n\n"They are sophisticated, mobile, and clearly well-resourced," said INTERPOL spokesperson Helena Maas. "We believe they operate through layers of VPNs, cryptocurrency mixers, and shell identities."\n\nCryptocurrency exchanges have been ordered to flag and freeze any wallets associated with the known transaction graph. Several darknet forums have been seized as part of the investigation.`,
+    severity:4, date:'Mar 15' },
+  { minScams:60, minTotal:3000,
+    headline:'GHOST OPERATOR BECOMES WORLD\'S MOST WANTED CYBERCRIMINAL',
+    sub:'Losses top $2M. NSA, GCHQ, Europol launch largest cyber manhunt in history.',
+    body:`What began as isolated phishing complaints has escalated into the largest coordinated cybercrime investigation in recent history. The suspect — now dubbed "The Ghost Operator" by the press — has allegedly stolen over $2 million across four continents.\n\nThe NSA, GCHQ, Europol, and a dozen national cybersecurity agencies are pooling resources in a joint task force. Darknet infrastructure linked to the suspect has been partially dismantled, but the operator continues to evade capture.\n\n"They change identities faster than we can track," admitted one senior FBI official. "Every lead goes cold."\n\nA $250,000 reward has been announced for information leading to the suspect's arrest.`,
+    severity:5, date:'Mar 20' },
+];
+const SEV_COLORS = ['#2a6a3a','#8a7000','#8a3000','#aa1030','#7700cc','#cc0022'];
+const SEV_LABELS = ['NOTICE','DEVELOPING','ALERT','FEDERAL','INTERPOL','MOST WANTED'];
+
+function getActiveArticles() {
+  return NEWS_ARTICLES.filter(a => G.scamsRun >= a.minScams && Math.floor(G.totalEarned) >= a.minTotal);
+}
+
+function renderNewsPage() {
+  const articles = getActiveArticles();
+  const latest = articles[articles.length - 1];
+  const older = articles.slice(0, -1).reverse();
+  if(!latest) {
+    return `<div style="background:#f8f6f0;color:#222;font-family:Georgia,serif;padding:24px">
+      <div style="font-size:22px;font-weight:bold;border-bottom:3px solid #222;padding-bottom:8px;margin-bottom:16px">🗞 ClearNet Daily</div>
+      <div style="color:#888;font-size:13px">No significant cybercrime news today. Check back later as your operations grow.</div>
+    </div>`;
+  }
+  const sc = SEV_COLORS[latest.severity]||'#555';
+  const sl = SEV_LABELS[latest.severity]||'NEWS';
+  return `
+  <div style="background:#f8f6f0;color:#111;font-family:Georgia,serif;overflow-y:auto">
+    <div style="background:#111;color:#f8f6f0;padding:10px 20px;display:flex;align-items:center;gap:14px">
+      <span style="font-size:18px;font-weight:bold;letter-spacing:2px">🗞 CLEARNET DAILY</span>
+      <span style="margin-left:auto;font-size:11px;opacity:0.5;font-family:monospace">CYBER CRIME DESK</span>
+    </div>
+    <div style="padding:12px 20px 10px;background:#222;color:#f8f6f0">
+      <div style="display:inline-block;background:${sc};color:#fff;font-size:10px;font-family:monospace;padding:2px 8px;border-radius:2px;letter-spacing:2px">⚠ ${sl}</div>
+      <div style="font-size:21px;font-weight:bold;line-height:1.3;margin:8px 0 4px">${latest.headline}</div>
+      <div style="font-size:13px;color:#bbb;margin-bottom:6px;font-style:italic">${latest.sub}</div>
+      <div style="font-size:11px;color:#777;font-family:monospace">${latest.date} · Staff Reporter</div>
+    </div>
+    <div style="padding:16px 20px;font-size:13px;line-height:1.9;white-space:pre-line;border-bottom:2px solid #ddd">${latest.body}</div>
+    ${older.length ? `<div style="padding:14px 20px">
+      <div style="font-size:11px;font-family:monospace;letter-spacing:2px;color:#666;margin-bottom:10px;border-bottom:1px solid #ddd;padding-bottom:6px">PREVIOUS COVERAGE</div>
+      ${older.map((a,i)=>`
+        <div style="margin-bottom:4px">
+          <div onclick="var b=document.getElementById('nart${i}');b.style.display=b.style.display==='block'?'none':'block'" style="padding:8px 0;cursor:pointer;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:baseline">
+            <span style="background:${SEV_COLORS[a.severity]};color:#fff;font-size:9px;font-family:monospace;padding:1px 5px;border-radius:2px;flex-shrink:0">${SEV_LABELS[a.severity]}</span>
+            <span style="font-size:13px;font-weight:bold;flex:1">${a.headline}</span>
+            <span style="font-size:10px;color:#888;font-family:monospace;flex-shrink:0">${a.date}</span>
+          </div>
+          <div id="nart${i}" style="display:none;font-size:12px;line-height:1.8;color:#333;padding:10px;background:#fff;border:1px solid #ddd;border-radius:3px;margin-bottom:8px;white-space:pre-line">${a.body}</div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════
+// HELP DESK
+// ═══════════════════════════════════════════
+const HELP_QA = [
+  { q:'How do I earn my first DD?', tag:'BEGINNER',
+    a:'Open Scam Ops (taskbar) and click EXECUTE on "Spam Blast". It takes ~5 seconds and earns 5–15 DD. Repeat this while saving up for your first upgrade from the Black Market.' },
+  { q:'Why do my phishing emails keep failing?', tag:'EMAIL',
+    a:'Without Spell Checker Pro, your success rate is only 30%. Buy it from the Black Market for 30 DD to raise it to 55%. Also try the Phishing Studio (Mail → Compose → Phishing Studio) for bulk campaigns.' },
+  { q:'What is the Phishing Studio?', tag:'EMAIL',
+    a:'Open Mail → Compose → click "Phishing Studio". It lets you launch campaigns to hundreds of targets at once. Pick a template, set target count, and watch the Suspicion Meter — lower suspicion means more hooks land. Upgrades reduce suspicion.' },
+  { q:'How do I use the fake bank website?', tag:'BROWSER',
+    a:'Open DarkBrowser → click SecureBank Clone (or type "bank.spoofed"). Fill in fake credentials and hit Sign In. Each successful harvest earns 25–55 DD but raises your Wanted Level.' },
+  { q:'What is the Wanted Level and why does it matter?', tag:'WANTED',
+    a:'Every scam raises your ★ Wanted Level (stars in the taskbar). At 5★ you are at maximum heat. It decays slowly on its own, but the fastest fix is DarkBrowser → launder.crypto (15% fee, -1 star).' },
+  { q:'What is the best upgrade order?', tag:'SHOP',
+    a:'1. Spell Checker Pro (30 DD) — phish success +25%.\n2. VPN Bundle (50 DD) — wanted gain -40%.\n3. Phish Kit v2 (80 DD) — bank op rewards +40%.\n4. Burner Phones (120 DD) — +1.5 DD/sec passive.\n5. Identity Pack (150 DD) — unlocks Crypto Pump op.\n6. Botnet (300 DD) — +5 DD/sec passive, best long-term ROI.' },
+  { q:'How do I earn passive income?', tag:'PASSIVE',
+    a:'Buy Burner Phones (Level 2, 120 DD) for +1.5 DD/sec. The Botnet (Level 4, 300 DD) adds +5 DD/sec. Passive income runs even when not clicking — watch it in the HUD (bottom-right corner).' },
+  { q:'How does the Terminal work?', tag:'TERMINAL',
+    a:'Open Terminal and type "help". Key commands:\n• scan — find vulnerable targets\n• phish — quick-fire a phish attempt\n• crack — brute-force a password (costs 5 DD)\n• probe — probe a network for XP\n• stats — see your current stats' },
+  { q:'How do I level up fast?', tag:'LEVELING',
+    a:'Bank creds harvesting (+25 XP), phishing campaign hooks (+3 XP each), buying upgrades (+20 XP), and running ops all give XP. Watch the purple bar at the bottom of the screen. Higher level = bigger DD multiplier on all earnings.' },
+  { q:'What does the news site show?', tag:'NEWS',
+    a:'DarkBrowser → news.clearnet shows the ClearNet Daily newspaper. Headlines escalate based on your real in-game activity — the more scams you run and DD you earn, the more severe they become. Watch yourself go from local spam to global manhunt.' },
+  { q:'How do I launder money?', tag:'WANTED',
+    a:'DarkBrowser → type "launder.crypto". Enter an amount (min 50 DD) and click LAUNDER. You pay a 15% fee but your Wanted Level drops 1 star. Essential at 4–5★.' },
+  { q:'What are Tasks and how do I complete them?', tag:'TASKS',
+    a:'Open the Tasks app (taskbar or desktop icon). Each task has a clear objective. When the condition is met, a green CLAIM button appears — click it for bonus DD and XP. Tasks guide you through early game progression.' },
+];
+
+function renderHelp(container) {
+  container.innerHTML = `
+    <div class="section-header"><div class="dot"></div>HELP DESK — CLICK A QUESTION</div>
+    <div style="padding:8px 14px;display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--border)">
+      ${['ALL','BEGINNER','EMAIL','BROWSER','WANTED','SHOP','PASSIVE','TERMINAL','LEVELING','NEWS','TASKS'].map((t,i)=>`
+        <span onclick="filterHelp('${t}',this)" data-htag="${t}" style="padding:2px 7px;border-radius:3px;font-size:9px;cursor:pointer;border:1px solid ${i===0?'var(--green)':'var(--border)'};background:${i===0?'var(--green3)':'transparent'};color:${i===0?'var(--green)':'var(--text2)'};transition:all 0.2s;letter-spacing:1px">${t}</span>
+      `).join('')}
+    </div>
+    <div id="help-list" style="overflow-y:auto"></div>
+  `;
+  renderHelpList('ALL');
+}
+
+function filterHelp(tag, el) {
+  document.querySelectorAll('[data-htag]').forEach(e=>{
+    e.style.borderColor='var(--border)';e.style.background='transparent';e.style.color='var(--text2)';
+  });
+  el.style.borderColor='var(--green)';el.style.background='var(--green3)';el.style.color='var(--green)';
+  renderHelpList(tag);
+}
+
+function renderHelpList(tag) {
+  const list = document.getElementById('help-list');
+  if(!list) return;
+  const items = tag==='ALL' ? HELP_QA : HELP_QA.filter(q=>q.tag===tag);
+  list.innerHTML = items.map((qa,i)=>`
+    <div style="border-bottom:1px solid var(--border)">
+      <div onclick="toggleHelp(${i})" style="padding:11px 14px;cursor:pointer;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='rgba(0,255,136,0.04)'" onmouseout="this.style.background='transparent'">
+        <span style="font-size:12px;color:var(--text);flex:1">${qa.q}</span>
+        <span style="font-size:9px;padding:2px 6px;border-radius:2px;background:var(--panel2);border:1px solid var(--border);color:var(--text2);letter-spacing:1px;flex-shrink:0">${qa.tag}</span>
+        <span id="harr${i}" style="color:var(--text2);font-size:11px;flex-shrink:0;transition:transform 0.25s;display:inline-block">▶</span>
+      </div>
+      <div id="hans${i}" style="display:none;padding:4px 14px 14px;font-size:12px;color:var(--text);line-height:1.9;white-space:pre-line;background:rgba(0,255,136,0.03);border-top:1px solid var(--border)">${qa.a}</div>
+    </div>
+  `).join('');
+}
+
+function toggleHelp(i) {
+  const ans = document.getElementById('hans'+i);
+  const arr = document.getElementById('harr'+i);
+  if(!ans) return;
+  const isOpen = ans.style.display !== 'none';
+  ans.style.display = isOpen ? 'none' : 'block';
+  if(arr) arr.style.transform = isOpen ? '' : 'rotate(90deg)';
+}
+
+// ═══════════════════════════════════════════
+// TASKS / CHECKLIST
+// ═══════════════════════════════════════════
+const TASKS_DATA = [
+  { id:'t1',  name:'First Blood',      desc:'Run your first Scam Op',                reward:20,  xp:30,  check:()=>G.scamsRun>=1 },
+  { id:'t2',  name:'Inbox Raider',     desc:'Send a phishing email manually',         reward:15,  xp:20,  check:()=>G.phishSent>=1 },
+  { id:'t3',  name:'Triple Op',        desc:'Run 3 Scam Ops total',                   reward:40,  xp:50,  check:()=>G.scamsRun>=3 },
+  { id:'t4',  name:'First Upgrade',    desc:'Buy any upgrade from the Black Market',  reward:50,  xp:60,  check:()=>Object.values(G.upgrades).some(v=>v) },
+  { id:'t5',  name:'Phish Hunter',     desc:'Successfully hook 5 phishing targets',   reward:60,  xp:70,  check:()=>G.phishSuccess>=5 },
+  { id:'t6',  name:'Bank Job',         desc:'Harvest bank credentials',               reward:80,  xp:80,  check:()=>G.scamsRun>=5 && Math.floor(G.totalEarned)>=80 },
+  { id:'t7',  name:'Century',          desc:'Earn 100 DD total',                      reward:100, xp:100, check:()=>Math.floor(G.totalEarned)>=100 },
+  { id:'t8',  name:'Go Dark',          desc:'Buy the VPN Bundle upgrade',             reward:60,  xp:50,  check:()=>G.upgrades.vpn },
+  { id:'t9',  name:'Campaign Manager', desc:'Send 50+ phish emails (Studio or manual)',reward:80, xp:80,  check:()=>G.phishSent>=50 },
+  { id:'t10', name:'Heat Check',       desc:'Reach Wanted Level 3★',                 reward:30,  xp:40,  check:()=>G.wantedLevel>=3 },
+  { id:'t11', name:'Clean Slate',      desc:'Launder money to reduce heat',           reward:50,  xp:60,  check:()=>G.log.some(l=>l.msg&&l.msg.includes('Laundered')) },
+  { id:'t12', name:'Grinder',          desc:'Run 10 Scam Ops total',                  reward:120, xp:120, check:()=>G.scamsRun>=10 },
+  { id:'t13', name:'Level Up',         desc:'Reach Level 3',                          reward:150, xp:0,   check:()=>G.level>=3 },
+  { id:'t14', name:'Half Grand',       desc:'Earn 500 DD total',                      reward:200, xp:150, check:()=>Math.floor(G.totalEarned)>=500 },
+  { id:'t15', name:'Botnet Operator',  desc:'Own a Botnet for passive income',        reward:300, xp:200, check:()=>G.upgrades.botnet },
+];
+let tasksClaimed = {};
+
+function renderTasks(container) {
+  checkTaskCompletion();
+  const done = TASKS_DATA.filter(t=>t.check()).length;
+  container.innerHTML = `
+    <div class="section-header"><div class="dot"></div>TASK LIST <span style="margin-left:auto;color:var(--text2)">${done}/${TASKS_DATA.length}</span></div>
+    <div style="height:4px;background:var(--border)"><div style="height:100%;background:linear-gradient(90deg,var(--green3),var(--green));width:${Math.round(done/TASKS_DATA.length*100)}%;transition:width 0.5s"></div></div>
+    <div style="overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px">
+      ${TASKS_DATA.map(t=>{
+        const isDone = t.check();
+        const claimed = !!tasksClaimed[t.id];
+        const canClaim = isDone && !claimed;
+        return `<div style="background:var(--panel2);border:1px solid ${claimed?'#152015':isDone?'var(--green)':'var(--border)'};border-radius:5px;padding:10px 12px;opacity:${claimed?0.45:1};transition:all 0.3s">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:15px">${claimed?'✅':isDone?'🟩':'⬜'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;color:${claimed?'var(--text2)':isDone?'var(--green)':'var(--text)'};text-decoration:${claimed?'line-through':'none'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+              <div style="font-size:10px;color:var(--text2);margin-top:1px">${t.desc}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:10px;color:var(--yellow)">+${t.reward}DD</div>
+              ${t.xp?`<div style="font-size:9px;color:var(--purple)">+${t.xp}XP</div>`:''}
+            </div>
+          </div>
+          ${canClaim?`<button class="btn" style="width:100%;margin-top:7px;font-size:10px;padding:4px" onclick="claimTask('${t.id}')">🎁 CLAIM REWARD</button>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function claimTask(id) {
+  if(tasksClaimed[id]) return;
+  const t = TASKS_DATA.find(x=>x.id===id);
+  if(!t||!t.check()) return;
+  tasksClaimed[id] = true;
+  earnDD(t.reward, null);
+  if(t.xp) gainXP(t.xp);
+  notify(`✅ Task: ${t.name}`,`+${t.reward} DD${t.xp?' +'+t.xp+' XP':''}`, 'success');
+  addLog(`Task claimed: ${t.name} +${t.reward}DD`, 'pos');
+  if(document.getElementById('wbody-tasks')) renderTasks(document.getElementById('wbody-tasks'));
+}
+
+let _lastTaskCheck = 0;
+function checkTaskCompletion() {
+  const now3 = Date.now();
+  if(now3 - _lastTaskCheck < 2000) return;
+  _lastTaskCheck = now3;
+  TASKS_DATA.forEach(t=>{
+    if(!tasksClaimed[t.id] && !t._notified && t.check()) {
+      t._notified = true;
+      notify(`🎯 Task Ready: ${t.name}`,'Open Tasks to claim your reward!','info');
+    }
+  });
+}
+
 function startGame() {
   document.getElementById('intro').style.display='none';
   notify('🖥️ System Online','Welcome to Kihtirh. Start small. Think big.','info');
   notify('📧 New Mail','You have 2 unread messages in your inbox.','info');
   gameLoop();
   setInterval(triggerRandomEvent, 12000 + Math.random()*8000);
-  setTimeout(()=>{ openWindow('ops'); openWindow('email'); }, 300);
+  setTimeout(()=>{ openWindow('ops'); openWindow('email'); openWindow('tasks'); }, 300);
   setTimeout(()=>{ showTutorial(); }, 900);
 }
 
