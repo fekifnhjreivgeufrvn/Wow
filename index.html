@@ -627,6 +627,7 @@ body::before {
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes fadein { to { opacity: 1; } }
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes leoPulse { 0%,100% { background:rgba(255,0,0,0.12); } 50% { background:rgba(255,0,0,0.22); } }
 
 .cursor-blink { animation: blink 1s step-end infinite; }
 
@@ -980,16 +981,16 @@ const G = {
   dd: 0,
   level: 1,
   xp: 0,
-  xpNext: 100,
+  xpNext: 200,
   wantedLevel: 0,
   totalEarned: 0,
   scamsRun: 0,
   phishSent: 0,
   phishSuccess: 0,
-  clicksPerSec: 0,
   passiveIncome: 0,
   multiplier: 1.0,
   gameTime: 0,
+  phase: 'early',   // 'early' | 'mid'
   log: [],
   upgrades: {
     spellcheck: false,
@@ -998,10 +999,22 @@ const G = {
     botnet: false,
     identityPack: false,
     burnerPhones: false,
+    // mid-game
+    callCentre: false,
+    moneyMule: false,
+    cryptoExchange: false,
+    safeHouse: false,
   },
-  missions: {},
-  // passive tickers
-  tickers: {},
+  properties: {},   // mid-game properties
+  leoFrozen: false, // LEO bust in progress
+  leoWarning: false,
+  phishCampaignCooldown: 0,  // timestamp when next campaign allowed
+  bankHarvestCooldown: 0,
+  crackCooldown: 0,
+  launderCooldown: 0,
+  totalLaundered: 0,
+  wantedPeak: 0,   // for task tracking
+  launders: 0,
 };
 
 const RANKS = [
@@ -1010,6 +1023,7 @@ const RANKS = [
   [5,'CON ARTIST'],
   [8,'FRAUD SYNDICATE'],
   [12,'DIGITAL KINGPIN'],
+  [16,'GHOST OPERATOR'],
 ];
 function getRank(lvl) {
   let r = RANKS[0][1];
@@ -1362,29 +1376,34 @@ function renderMailMain(container) {
 }
 
 function sendPhishEmail() {
+  const now4 = Date.now();
+  const res = document.getElementById('send-result');
+  // 12 second cooldown per manual send
+  if(G._manualPhishCD && now4 < G._manualPhishCD) {
+    const wait = Math.ceil((G._manualPhishCD - now4)/1000);
+    if(res) res.innerHTML=`<span style="color:var(--red)">⏳ Previous email still processing. ${wait}s.</span>`; return;
+  }
   const to = document.getElementById('c-to')?.value.trim();
   const subj = document.getElementById('c-subj')?.value.trim();
   const body = document.getElementById('c-body')?.value.trim();
-  const res = document.getElementById('send-result');
-  if(!to||!subj||!body){
-    if(res) res.innerHTML='<span style="color:var(--red)">⚠ Fill all fields.</span>'; return;
-  }
+  if(!to||!subj||!body){ if(res) res.innerHTML='<span style="color:var(--red)">⚠ Fill all fields.</span>'; return; }
   G.phishSent++;
-  const successRate = G.upgrades.spellcheck ? 0.55 : 0.3;
+  G._manualPhishCD = now4 + 12000;
+  const successRate = G.upgrades.spellcheck ? 0.45 : 0.22;
   const success = Math.random() < successRate;
   if(success){
-    const reward = Math.floor(8*G.multiplier + Math.random()*15);
+    const reward = Math.floor(5*G.multiplier + Math.random()*10);
     earnDD(reward, document.getElementById('c-to'));
     G.phishSuccess++;
     G.scamsRun++;
-    addLog(`Phish email to ${to} — SUCCESS +${reward}DD`, 'pos');
+    addLog(`Phish to ${to} — SUCCESS +${reward}DD`, 'pos');
     notify('📧 Phish Landed!',`${to} took the bait. +${reward} DD`,'success');
-    if(res) res.innerHTML=`<span style="color:var(--green)">✓ Hook set. Victim is biting... +${reward} DD</span>`;
-    gainXP(15);
-    addWanted(0.5);
+    if(res) res.innerHTML=`<span style="color:var(--green)">✓ Hook set. +${reward} DD (12s cooldown)</span>`;
+    gainXP(10);
+    addWanted(0.35);
   } else {
-    addLog(`Phish email to ${to} — FAILED (marked as spam)`, 'neg');
-    if(res) res.innerHTML=`<span style="color:var(--red)">✗ Blocked by spam filter. Upgrade your kit.</span>`;
+    addLog(`Phish to ${to} — FAILED (spam filter)`, 'neg');
+    if(res) res.innerHTML=`<span style="color:var(--red)">✗ Blocked by spam filter. (12s cooldown)</span>`;
   }
   sentEmails.unshift({ id:Date.now(), sender:'you@kihtirh.net', subject:subj, time:now(), body, unread:false });
 }
@@ -1529,39 +1548,62 @@ function renderBrowserPage() {
 }
 
 function harvestCreds() {
+  const now4 = Date.now();
+  if(G.bankHarvestCooldown && now4 < G.bankHarvestCooldown) {
+    const wait = Math.ceil((G.bankHarvestCooldown - now4)/1000);
+    const msg = document.getElementById('harvest-msg');
+    if(msg) msg.innerHTML=`<span style="color:var(--red)">⏳ Portal flagged. Reset in ${wait}s.</span>`;
+    return;
+  }
   const u = document.getElementById('fake-user')?.value;
   const p = document.getElementById('fake-pass')?.value;
-  const d = document.getElementById('fake-dob')?.value;
   const msg = document.getElementById('harvest-msg');
-  if(!u&&!p) { if(msg) msg.innerHTML='<span style="color:#c00">Please fill in all fields.</span>'; return; }
-  const reward = Math.floor(25*G.multiplier + Math.random()*30);
+  if(!u||!p) { if(msg) msg.innerHTML='<span style="color:#c00">Fill in username and password.</span>'; return; }
+  const reward = Math.floor(20*G.multiplier + Math.random()*25);
   earnDD(reward, document.getElementById('fake-user'));
   G.scamsRun++;
-  addLog(`Bank creds harvested. Account: ${u||'?'} — +${reward}DD`, 'pos');
+  addLog(`Bank creds harvested. Account: ${u} — +${reward}DD`, 'pos');
   notify('🏦 Credentials Harvested!',`Account compromised. +${reward} DD`,'success');
-  gainXP(25);
-  addWanted(1.5);
-  if(msg) msg.innerHTML=`<span style="color:green;font-size:13px">✓ Login successful. Redirecting...</span>`;
+  gainXP(22);
+  addWanted(1.2);
+  G.bankHarvestCooldown = now4 + 45000; // 45 second cooldown
+  if(msg) msg.innerHTML=`<span style="color:green;font-size:13px">✓ Harvested. Portal cooling down (45s)...</span>`;
   setTimeout(()=>{
     if(msg) msg.innerHTML='';
-    if(document.getElementById('fake-user')) document.getElementById('fake-user').value='';
-    if(document.getElementById('fake-pass')) document.getElementById('fake-pass').value='';
-    if(document.getElementById('fake-dob')) document.getElementById('fake-dob').value='';
+    ['fake-user','fake-pass','fake-dob'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   }, 2000);
 }
 
 function doLaunder() {
   const amt = parseInt(document.getElementById('launder-amt')?.value)||0;
   const msg = document.getElementById('launder-msg');
+  const now4 = Date.now();
+  if(G.launderCooldown && now4 < G.launderCooldown) {
+    const wait = Math.ceil((G.launderCooldown - now4)/1000);
+    if(msg) msg.innerHTML=`<span style="color:var(--red)">⏳ Mixer cooling down. ${wait}s remaining.</span>`;
+    return;
+  }
   if(amt < 50) { if(msg) msg.innerHTML='<span style="color:var(--red)">Minimum 50 DD to launder.</span>'; return; }
   if(amt > G.dd) { if(msg) msg.innerHTML='<span style="color:var(--red)">Insufficient DD balance.</span>'; return; }
-  const fee = Math.floor(amt*0.15);
+  // Scale: reduction = amount / totalDD * 5 stars, capped at 2.5 per launder
+  // So to fully clear 5 stars you need to spend proportionally — about 30% of your DD
+  const feeRate = G.upgrades.cryptoExchange ? 0.08 : 0.18;
+  const fee = Math.floor(amt * feeRate);
   G.dd -= fee;
+  G.totalLaundered += amt;
+  G.launders++;
+  // Scaled reduction: 50DD => ~0.05 stars, 500DD => ~0.5 stars, 5000DD => ~2 stars, capped 2.5
+  const maxDD = Math.max(G.dd + fee, 500);
+  const reduction = Math.min(2.5, (amt / maxDD) * 5);
+  const before = G.wantedLevel;
+  G.wantedLevel = Math.max(0, G.wantedLevel - reduction);
+  updateWanted();
+  // 90 second cooldown
+  G.launderCooldown = now4 + 90000;
   updateUI();
-  if(G.wantedLevel > 0) { G.wantedLevel = Math.max(0, G.wantedLevel-1); updateWanted(); }
-  addLog(`Laundered ${amt}DD (fee: ${fee}DD). Wanted level reduced.`, 'warn');
-  notify('💱 Laundering Complete',`-${fee} DD fee. Heat reduced.`,'warn');
-  if(msg) msg.innerHTML=`<span style="color:var(--green)">✓ Cleaned. -${fee} DD fee. Heat reduced.</span>`;
+  addLog(`Laundered ${amt}DD (fee: ${fee}DD). Heat -${reduction.toFixed(2)}★`, 'warn');
+  notify('💱 Laundering Complete',`-${fee} DD fee. Heat reduced by ${reduction.toFixed(1)}★`,'warn');
+  if(msg) msg.innerHTML=`<span style="color:var(--green)">✓ Cleaned. -${fee}DD fee. Heat -${reduction.toFixed(1)}★. Cooldown 90s.</span>`;
 }
 
 // ═══════════════════════════════════════════
@@ -1639,22 +1681,29 @@ const termCommands = {
     gainXP(8);
   },
   crack: async function*() {
+    const now4 = Date.now();
+    if(G.crackCooldown && now4 < G.crackCooldown) {
+      const wait = Math.ceil((G.crackCooldown - now4)/1000);
+      yield {t:'error',m:`Account lockout cooldown: ${wait}s remaining.`}; return;
+    }
     if(G.dd < 5) { yield {t:'error',m:'Insufficient DD. Need 5 DD.'}; return; }
     G.dd -= 5; updateUI();
     yield {t:'output',m:'Loading wordlist... (rockyou.txt 14.3M entries)'};
     await sleep(700);
     yield {t:'warn',m:'Attempting bruteforce...'};
-    await sleep(900);
-    const success = Math.random() > 0.45;
+    await sleep(1200);
+    const success = Math.random() > 0.5;
+    G.crackCooldown = now4 + 30000; // 30s cooldown
     if(success) {
-      const reward = Math.floor(20*G.multiplier+Math.random()*20);
+      const reward = Math.floor(15*G.multiplier+Math.random()*18);
       earnDD(reward, null);
       G.scamsRun++;
-      gainXP(20);
-      addWanted(1);
-      yield {t:'success',m:`PASSWORD CRACKED! Reward: +${reward} DD`};
+      gainXP(18);
+      addWanted(0.8);
+      yield {t:'success',m:`PASSWORD CRACKED! Reward: +${reward} DD. (30s cooldown)`};
     } else {
-      yield {t:'error',m:'Brute force failed. Account locked after 10 attempts.'};
+      addWanted(0.3);
+      yield {t:'error',m:'Brute force failed. Account locked. 30s cooldown.'};
     }
   },
   clear: 'CLEAR',
@@ -1721,40 +1770,34 @@ async function termKey(e) {
 // ═══════════════════════════════════════════
 const OPS_DATA = [
   {
-    id:'spam_blast', name:'Spam Blast', icon:'📨', reward:[5,15], xp:10, cooldown:8000, wantedGain:0.3,
-    desc:'Blast out 1000 spam emails. Low risk, moderate return. Bread and butter.',
-    requires: null,
-    progress: 5000,
+    id:'spam_blast', name:'Spam Blast', icon:'📨', reward:[4,10], xp:8, wantedGain:0.2,
+    desc:'Blast out spam emails. Low risk, low reward. Good starting point.',
+    requires: null, progress: 12000,
   },
   {
-    id:'bank_phish', name:'Bank Phishing', icon:'🏦', reward:[18,35], xp:20, cooldown:15000, wantedGain:0.8,
-    desc:'Deploy fake banking portal. High success with phish kit.',
-    requires: null,
-    progress: 10000,
+    id:'bank_phish', name:'Bank Phishing', icon:'🏦', reward:[14,28], xp:18, wantedGain:0.6,
+    desc:'Deploy fake banking portal. Better returns, more heat.',
+    requires: null, progress: 25000,
   },
   {
-    id:'prize_scam', name:'Prize Scam', icon:'🎰', reward:[12,28], xp:15, cooldown:12000, wantedGain:0.5,
+    id:'prize_scam', name:'Prize Scam', icon:'🎰', reward:[10,22], xp:12, wantedGain:0.4,
     desc:'"Congratulations! You have won..." Classic but effective.',
-    requires: null,
-    progress: 8000,
+    requires: null, progress: 20000,
   },
   {
-    id:'tech_support', name:'Tech Support', icon:'🖥️', reward:[25,55], xp:30, cooldown:20000, wantedGain:1.2,
+    id:'tech_support', name:'Tech Support', icon:'🖥️', reward:[22,45], xp:28, wantedGain:1.0,
     desc:'Call victims claiming their PC has a virus. Get remote access.',
-    requires: { level: 2 },
-    progress: 12000,
+    requires: { level: 3 }, progress: 35000,
   },
   {
-    id:'romance_scam', name:'Romance Con', icon:'💘', reward:[40,80], xp:45, cooldown:30000, wantedGain:1.8,
+    id:'romance_scam', name:'Romance Con', icon:'💘', reward:[35,70], xp:42, wantedGain:1.5,
     desc:'Long game. Build trust, then strike. Maximum DD per op.',
-    requires: { level: 3 },
-    progress: 18000,
+    requires: { level: 5 }, progress: 55000,
   },
   {
-    id:'crypto_pump', name:'Crypto Pump', icon:'📈', reward:[60,120], xp:60, cooldown:45000, wantedGain:2.5,
-    desc:'Fake crypto project. Pump and dump. Massive returns, massive risk.',
-    requires: { level: 4, upgrade:'identityPack' },
-    progress: 25000,
+    id:'crypto_pump', name:'Crypto Pump', icon:'📈', reward:[55,110], xp:58, wantedGain:2.2,
+    desc:'Fake crypto project. Pump and dump. Massive risk, massive reward.',
+    requires: { level: 6, upgrade:'identityPack' }, progress: 75000,
   },
 ];
 
@@ -1771,34 +1814,42 @@ function renderOps(container) {
 function refreshOpsList() {
   const list = document.getElementById('ops-list');
   if(!list) return;
-  list.innerHTML = OPS_DATA.map(op=>{
+  list.innerHTML = getAllOps().map(op=>{
     const locked = op.requires && (
       (op.requires.level && G.level < op.requires.level) ||
-      (op.requires.upgrade && !G.upgrades[op.requires.upgrade])
+      (op.requires.upgrade && !G.upgrades[op.requires.upgrade]) ||
+      (op.requires.phase && G.phase !== op.requires.phase)
     );
     const running = opTimers[op.id];
     const elapsed = running ? Date.now() - running.start : 0;
     const pct = running ? Math.min(100, (elapsed/op.progress)*100) : 0;
     const remaining = running ? Math.max(0, Math.ceil((op.progress - elapsed)/1000)) : 0;
     const reward = Math.floor((op.reward[0] + op.reward[1])/2 * G.multiplier);
+    const frozenLock = G.leoFrozen;
+    let lockReason = '';
+    if(op.requires?.level && G.level < op.requires.level) lockReason = `Level ${op.requires.level} required`;
+    else if(op.requires?.phase && G.phase !== op.requires.phase) lockReason = `🔒 Mid-game (10,000 DD total)`;
+    else if(op.requires?.upgrade && !G.upgrades[op.requires.upgrade]) lockReason = `🔒 Needs upgrade: ${op.requires.upgrade}`;
     return `
-      <div class="mission ${locked?'locked':''} ${running?'active':''}" id="op-${op.id}">
+      <div class="mission ${locked||frozenLock?'locked':''} ${running?'active':''}" id="op-${op.id}">
         <div class="m-header">
           <span class="m-icon">${op.icon}</span>
           <span class="m-name">${op.name}</span>
           <span class="m-reward">~${reward} DD</span>
         </div>
-        <div class="m-desc">${op.desc}${locked?`<br><span style="color:var(--red)">🔒 Requires ${op.requires.level?'Level '+op.requires.level:''}${op.requires.upgrade?' + '+op.requires.upgrade:''}</span>`:''}</div>
+        <div class="m-desc">${op.desc}${lockReason?`<br><span style="color:var(--red)">${lockReason}</span>`:''}</div>
+        ${frozenLock&&!locked?'<div style="font-size:10px;color:var(--red)">🚨 OPS SUSPENDED — LEO RAID</div>':''}
         <div class="m-progress-wrap"><div class="m-progress" style="width:${pct}%"></div></div>
         ${running ? `<span class="m-cooldown">⏳ ${remaining}s remaining...</span>` :
-          `<button class="m-btn ${locked?'':''}${running?'running':''}" ${locked||running?'disabled':''} onclick="runOp('${op.id}')">▶ EXECUTE</button>`}
+          `<button class="m-btn" ${locked||running||frozenLock?'disabled':''} onclick="runOp('${op.id}')">▶ EXECUTE</button>`}
       </div>
     `;
   }).join('');
 }
 
 function runOp(id) {
-  const op = OPS_DATA.find(o=>o.id===id);
+  if(G.leoFrozen) { notify('🚨 Ops Frozen','LEO raid in progress. Wait it out.','error'); return; }
+  const op = getAllOps().find(o=>o.id===id);
   if(!op || opTimers[id]) return;
   opTimers[id] = { start: Date.now() };
   addLog(`Operation ${op.name} started...`, 'warn');
@@ -1807,8 +1858,10 @@ function runOp(id) {
   setTimeout(()=>{
     clearInterval(interval);
     delete opTimers[id];
+    if(G.leoFrozen) { refreshOpsList(); return; } // cancelled by bust
     const bonus = G.upgrades.phishKit && id==='bank_phish' ? 1.4 : 1;
-    const reward = Math.floor((op.reward[0] + Math.random()*(op.reward[1]-op.reward[0]))*G.multiplier*bonus);
+    const propBonus = G.upgrades.callCentre && id==='call_centre_blast' ? 1.3 : 1;
+    const reward = Math.floor((op.reward[0] + Math.random()*(op.reward[1]-op.reward[0]))*G.multiplier*bonus*propBonus);
     earnDD(reward, null);
     G.scamsRun++;
     gainXP(op.xp);
@@ -1858,45 +1911,63 @@ const SHOP_ITEMS = [
 ];
 
 function renderShop(container) {
+  const items = getAllShopItems();
+  const earlyItems = items.filter(i=>!MID_SHOP_ITEMS.find(m=>m.id===i.id));
+  const midItems = items.filter(i=>MID_SHOP_ITEMS.find(m=>m.id===i.id));
   container.innerHTML = `
-    <div class="section-header"><div class="dot"></div>BLACK MARKET <span style="margin-left:auto;color:var(--yellow)">Balance: ${G.dd} DD</span></div>
+    <div class="section-header"><div class="dot"></div>BLACK MARKET <span style="margin-left:auto;color:var(--yellow)">Balance: ${Math.floor(G.dd)} DD</span></div>
     <div class="shop-grid">
-      ${SHOP_ITEMS.map(item=>{
-        const locked = item.requires && item.requires.level && G.level < item.requires.level;
-        const purchased = G.upgrades[item.id];
-        return `
-          <div class="shop-item ${locked?'locked':''} ${purchased?'purchased':''}" onclick="${locked||purchased?'':''} buyItem('${item.id}')">
-            ${purchased?'<div class="purchased-badge">✓ OWNED</div>':''}
-            <div class="item-icon">${item.icon}</div>
-            <div class="item-name">${item.name}</div>
-            <div class="item-desc">${item.desc}</div>
-            <div class="item-cost">${purchased?'—':locked?`🔒 Level ${item.requires.level} req.`:`💰 ${item.cost} DD`}</div>
-            <div class="item-effect">${item.effect}</div>
-            ${locked?`<div class="lock-reason">Need Level ${item.requires.level}</div>`:''}
-          </div>
-        `;
-      }).join('')}
+      ${earlyItems.map(item=>shopItemHTML(item)).join('')}
+    </div>
+    ${G.phase==='mid'?`
+    <div class="section-header" style="border-top:2px solid var(--purple)"><div class="dot" style="background:var(--purple)"></div><span style="color:var(--purple)">MID-GAME PROPERTIES</span></div>
+    <div class="shop-grid">
+      ${midItems.map(item=>shopItemHTML(item)).join('')}
+    </div>`:'<div style="padding:10px 14px;font-size:10px;color:var(--text2);text-align:center;border-top:1px solid var(--border)">🔒 Mid-game properties unlock at 10,000 DD total earned</div>'}
+  `;
+}
+
+function shopItemHTML(item) {
+  const isMid = !!MID_SHOP_ITEMS.find(m=>m.id===item.id);
+  const locked = item.requires && (
+    (item.requires.level && G.level < item.requires.level) ||
+    (item.requires.phase && G.phase !== item.requires.phase)
+  );
+  const purchased = G.upgrades[item.id];
+  return `
+    <div class="shop-item ${locked?'locked':''} ${purchased?'purchased':''}" onclick="${locked||purchased?'':''} buyItem('${item.id}')">
+      ${purchased?'<div class="purchased-badge">✓ OWNED</div>':''}
+      <div class="item-icon">${item.icon}</div>
+      <div class="item-name">${item.name}</div>
+      <div class="item-desc">${item.desc}</div>
+      <div class="item-cost">${purchased?'—':locked?`🔒 ${item.requires.level?'Level '+item.requires.level:''}`:`💰 ${item.cost} DD`}</div>
+      <div class="item-effect">${item.effect}</div>
+      ${item.passive?`<div style="font-size:10px;color:var(--blue)">+${item.passive} DD/sec passive</div>`:''}
     </div>
   `;
 }
 
 function buyItem(id) {
-  const item = SHOP_ITEMS.find(i=>i.id===id);
+  const item = getAllShopItems().find(i=>i.id===id);
   if(!item) return;
   if(G.upgrades[id]) { notify('Already Owned','You already have this upgrade.','warn'); return; }
-  if(G.dd < item.cost) { notify('Insufficient Funds',`Need ${item.cost} DD. Have ${G.dd} DD.`,'error'); return; }
+  if(G.dd < item.cost) { notify('Insufficient Funds',`Need ${item.cost} DD. Have ${Math.floor(G.dd)} DD.`,'error'); return; }
   if(item.requires?.level && G.level < item.requires.level) { notify('Level Too Low',`Need Level ${item.requires.level}.`,'error'); return; }
+  if(item.requires?.phase && G.phase !== item.requires.phase) { notify('Not Yet Available','Unlock mid-game first (10,000 DD).','error'); return; }
   G.dd -= item.cost;
   G.upgrades[id] = true;
-  // Apply effects
+  // Apply passive income
   if(id === 'burnerPhones') G.passiveIncome += 1.5;
   if(id === 'botnet') G.passiveIncome += 5;
-  if(id === 'vpn') G.multiplier += 0;
+  if(id === 'callCentre') G.passiveIncome += 8;
+  if(id === 'moneyMule') G.passiveIncome += 4;
+  if(id === 'cryptoExchange') G.passiveIncome += 10;
   updateUI();
   notify(`${item.icon} Purchased!`,`${item.name} activated.`,'success');
   addLog(`Purchased: ${item.name}`, 'pos');
-  gainXP(20);
+  gainXP(30);
   if(document.getElementById('wbody-shop')) renderShop(document.getElementById('wbody-shop'));
+  if(document.getElementById('wbody-ops')) renderOps(document.getElementById('wbody-ops'));
 }
 
 // ═══════════════════════════════════════════
@@ -2021,26 +2092,36 @@ function calcSuspicion() {
 }
 
 function launchPhishCampaign() {
-  const count = parseInt(document.getElementById('phish-count')?.value)||50;
+  const now4 = Date.now();
+  const result = document.getElementById('phish-result');
+  if(G.phishCampaignCooldown && now4 < G.phishCampaignCooldown) {
+    const wait = Math.ceil((G.phishCampaignCooldown - now4)/1000);
+    if(result) result.innerHTML=`<span style="color:var(--red)">⏳ Servers rate-limited. ${wait}s cooldown.</span>`;
+    return;
+  }
+  const count = Math.min(500, Math.max(1, parseInt(document.getElementById('phish-count')?.value)||50));
   const type = document.getElementById('phish-tmpl')?.value||'bank';
-  const baseRate = G.upgrades.spellcheck ? 0.5 : 0.3;
+  const baseRate = G.upgrades.spellcheck ? 0.38 : 0.18;
   let susp = 30;
   if(count > 200) susp += 30; else if(count > 100) susp += 15;
   if(G.upgrades.spellcheck) susp -= 15;
   if(G.upgrades.vpn) susp -= 10;
-  const successRate = Math.max(0.05, baseRate - susp/300);
-  const hooks = Math.floor(count * successRate * (0.8+Math.random()*0.4));
-  const reward = Math.floor(hooks * 8 * G.multiplier);
+  const successRate = Math.max(0.04, baseRate - susp/400);
+  const hooks = Math.floor(count * successRate * (0.75+Math.random()*0.5));
+  const reward = Math.floor(hooks * 6 * G.multiplier);
   earnDD(reward, null);
   G.phishSent += count;
   G.phishSuccess += hooks;
   G.scamsRun++;
-  gainXP(hooks * 3);
-  addWanted(count/100);
-  const result = document.getElementById('phish-result');
-  if(result) result.innerHTML = `<span style="color:var(--green)">✓ Campaign sent. ${hooks}/${count} hooked. +${reward} DD</span>`;
+  gainXP(hooks * 2);
+  addWanted(count/150);
+  // Cooldown scales with count: 100 targets = 60s, 500 targets = 180s
+  const cooldownMs = Math.floor(60000 + (count/500)*120000);
+  G.phishCampaignCooldown = now4 + cooldownMs;
+  if(result) result.innerHTML=`<span style="color:var(--green)">✓ ${hooks}/${count} hooked. +${reward} DD. Cooldown ${Math.ceil(cooldownMs/1000)}s.</span>`;
   notify('🎣 Campaign Complete!',`${hooks} victims hooked. +${reward} DD`,'success');
   addLog(`Phish campaign (${type}): ${hooks}/${count} hooked +${reward}DD`, 'pos');
+  calcSuspicion();
 }
 
 // ═══════════════════════════════════════════
@@ -2086,12 +2167,74 @@ function gainXP(amount) {
 }
 
 function addWanted(amount) {
-  if(G.upgrades.vpn) amount *= 0.6;
+  if(G.leoFrozen) return;
+  if(G.upgrades.vpn) amount *= 0.55;
   G.wantedLevel = Math.min(5, G.wantedLevel + amount);
+  if(G.wantedLevel > G.wantedPeak) G.wantedPeak = G.wantedLevel;
   updateWanted();
-  if(G.wantedLevel >= 5) {
-    notify('🚨 MAXIMUM WANTED!','LEO closing in. Launder your DD or lay low!','error');
+  // LEO warning at 4 stars
+  if(G.wantedLevel >= 4 && !G.leoWarning) {
+    G.leoWarning = true;
+    notify('🚨 FEDERAL ALERT','Wanted 4★ — LEO is tracking your IP. Launder NOW or face consequences!','error');
+    addLog('FEDERAL ALERT: Heat at 4★. Launder immediately.','neg');
   }
+  // LEO bust at 5 stars — real consequences
+  if(G.wantedLevel >= 5 && !G.leoFrozen) {
+    triggerLEOBust();
+  }
+}
+
+function triggerLEOBust() {
+  if(G.leoFrozen) return;
+  G.leoFrozen = true;
+  // Freeze all ops
+  Object.keys(opTimers).forEach(id => delete opTimers[id]);
+  const seizurePct = G.upgrades.safeHouse ? (0.15 + Math.random()*0.15) : (0.35 + Math.random()*0.25);
+  const seized = Math.floor(G.dd * seizurePct);
+  G.dd = Math.max(0, G.dd - seized);
+  G.wantedLevel = 3.5; // Drop to 3.5 after bust
+  G.leoWarning = false;
+  updateUI();
+  updateWanted();
+  // Show bust overlay
+  showLEOBust(seized);
+  // Unfreeze after 20 seconds
+  setTimeout(()=>{
+    G.leoFrozen = false;
+    notify('⚠ Back Online','LEO heat has dropped. Stay low for now.','warn');
+    addLog('LEO raid ended. Operations resumed at 3.5★ heat.','warn');
+    if(document.getElementById('leo-bust-overlay')) document.getElementById('leo-bust-overlay').remove();
+  }, 20000);
+}
+
+function showLEOBust(seized) {
+  const el = document.createElement('div');
+  el.id = 'leo-bust-overlay';
+  el.style.cssText = `position:fixed;inset:0;background:rgba(255,0,0,0.12);z-index:6000;display:flex;align-items:center;justify-content:center;animation:leoPulse 0.5s ease-in-out infinite`;
+  el.innerHTML = `
+    <div style="background:#0a0c0f;border:2px solid var(--red);border-radius:8px;padding:28px 36px;max-width:420px;text-align:center;box-shadow:0 0 60px rgba(255,0,100,0.4)">
+      <div style="font-size:40px;margin-bottom:12px">🚨</div>
+      <div style="font-family:var(--font-title);font-size:20px;color:var(--red);letter-spacing:3px;margin-bottom:8px">LAW ENFORCEMENT RAID</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px">Your operation has been compromised. Agents have seized assets and disrupted your infrastructure.</div>
+      <div style="background:rgba(255,51,102,0.1);border:1px solid var(--red);border-radius:4px;padding:12px;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text2)">ASSETS SEIZED</div>
+        <div style="font-size:28px;font-family:var(--font-title);color:var(--red)">${seized} DD</div>
+      </div>
+      <div style="font-size:11px;color:var(--yellow)">⚠ All operations suspended for 20 seconds</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:8px">Heat reduced to 3.5★ after raid</div>
+      <div id="bust-timer" style="font-family:var(--font-title);font-size:24px;color:var(--red);margin-top:12px">20</div>
+    </div>
+  `;
+  document.body.appendChild(el);
+  addLog(`🚨 LEO RAID — ${seized}DD seized. All ops suspended 20s.`, 'neg');
+  notify('🚨 BUSTED!',`LEO seized ${seized} DD. Stay low.`, 'error');
+  let t = 20;
+  const tmr = setInterval(()=>{
+    t--;
+    const bt = document.getElementById('bust-timer');
+    if(bt) bt.textContent = t;
+    if(t<=0) clearInterval(tmr);
+  }, 1000);
 }
 
 function updateWanted() {
@@ -2150,16 +2293,24 @@ function gameLoop() {
   const delta = (now2 - lastPassive)/1000;
   lastPassive = now2;
   G.gameTime += delta;
-  if(G.passiveIncome > 0) {
+  if(G.passiveIncome > 0 && !G.leoFrozen) {
     const income = G.passiveIncome * delta;
     G.dd += income;
     G.totalEarned += income;
     document.getElementById('dd-display').textContent = Math.floor(G.dd);
   }
-  // Wanted decay
-  if(G.wantedLevel > 0) {
-    G.wantedLevel = Math.max(0, G.wantedLevel - 0.002*delta);
+  // Wanted decay — much slower: 0.0004/s = about 1 star per 40 minutes at rest
+  // But pauses if LEO frozen (post-bust decay stays at 3.5)
+  if(G.wantedLevel > 0 && !G.leoFrozen) {
+    G.wantedLevel = Math.max(0, G.wantedLevel - 0.0004*delta);
     updateWanted();
+  }
+  // Re-arm LEO warning when heat drops below 4
+  if(G.wantedLevel < 4) G.leoWarning = false;
+  // Mid-game phase unlock
+  if(G.phase === 'early' && Math.floor(G.totalEarned) >= 10000) {
+    G.phase = 'mid';
+    onMidGameUnlock();
   }
   // Clock
   const t = new Date();
@@ -2171,7 +2322,81 @@ function gameLoop() {
 }
 
 // ═══════════════════════════════════════════
-// RANDOM EVENTS
+// MID-GAME UNLOCK & PROPERTIES
+// ═══════════════════════════════════════════
+function onMidGameUnlock() {
+  notify('🏢 MID-GAME UNLOCKED!','You\'ve earned 10,000 DD. Time to scale up. Properties now available!','info');
+  notify('📍 New Apps Available','Check Scam Ops and Black Market for mid-game content.','info');
+  addLog('MID-GAME UNLOCKED: Properties & advanced ops now available.','pos');
+  // Open a mid-game welcome email
+  emails.unshift({
+    id:Date.now(), sender:'system@kihtirh.net', subject:'[SYS] You\'ve gone pro', time:now(),
+    body:`Operator,\n\nYou've crossed the 10,000 DD threshold. The early days are over.\n\nYou now have access to:\n• Physical Properties — rent scam call centres, safe houses, money mule networks\n• Advanced Operations — investment fraud, SIM swapping, corporate espionage\n• Crypto Exchange — set up your own money laundering front\n\nHeat management is critical at this level. LEO has better tools now. Stay disciplined.\n\nGood luck. You'll need it.\n\n— System`,
+    unread:true, badge:'SYS'
+  });
+  if(document.getElementById('wbody-ops')) renderOps(document.getElementById('wbody-ops'));
+  if(document.getElementById('wbody-shop')) renderShop(document.getElementById('wbody-shop'));
+}
+
+const MID_OPS_DATA = [
+  {
+    id:'sim_swap', name:'SIM Swap', icon:'📱', reward:[80,160], xp:70, wantedGain:1.8,
+    desc:'Hijack a victim\'s phone number. Full account access.',
+    requires: { phase:'mid', level:6 }, progress: 90000,
+  },
+  {
+    id:'investment_fraud', name:'Investment Fraud', icon:'💼', reward:[150,350], xp:120, wantedGain:2.5,
+    desc:'Fake investment firm. Ponzi scheme returns.',
+    requires: { phase:'mid', level:7 }, progress: 150000,
+  },
+  {
+    id:'corp_espionage', name:'Corporate Espionage', icon:'🕵️', reward:[200,500], xp:160, wantedGain:3.0,
+    desc:'Sell stolen corporate data to competitors. Maximum payout.',
+    requires: { phase:'mid', level:9, upgrade:'safeHouse' }, progress: 240000,
+  },
+  {
+    id:'money_mule_run', name:'Money Mule Run', icon:'🐎', reward:[120,280], xp:100, wantedGain:2.0,
+    desc:'Route funds through recruited mules. Distance yourself from the trail.',
+    requires: { phase:'mid', upgrade:'moneyMule' }, progress: 120000,
+  },
+  {
+    id:'call_centre_blast', name:'Call Centre Blast', icon:'☎️', reward:[300,600], xp:200, wantedGain:3.5,
+    desc:'Your call centre runs thousands of tech support scams per hour.',
+    requires: { phase:'mid', upgrade:'callCentre' }, progress: 180000,
+  },
+];
+
+const MID_SHOP_ITEMS = [
+  {
+    id:'callCentre', name:'Scam Call Centre', icon:'☎️', cost:2500, effect:'Unlocks Call Centre Blast op',
+    desc:'Rent a physical call centre with 50 agents. Run tech support scams at scale.',
+    requires: { phase:'mid', level:6 }, passive:8,
+  },
+  {
+    id:'moneyMule', name:'Money Mule Network', icon:'🐎', cost:1800, effect:'Unlocks Mule Run op + passive',
+    desc:'Recruit a network of financial mules to move dirty money.',
+    requires: { phase:'mid', level:5 }, passive:4,
+  },
+  {
+    id:'cryptoExchange', name:'Crypto Exchange Front', icon:'🏦', cost:3500, effect:'Reduces launder fee to 8%',
+    desc:'Your own exchange. Launder at half the fee.',
+    requires: { phase:'mid', level:7 }, passive:10,
+  },
+  {
+    id:'safeHouse', name:'Safe House Network', icon:'🏠', cost:1200, effect:'-50% LEO seizure on bust',
+    desc:'Distribute assets across multiple safe houses. Harder to seize.',
+    requires: { phase:'mid', level:5 }, passive:0,
+  },
+];
+
+function getAllOps() {
+  return G.phase === 'mid' ? [...OPS_DATA, ...MID_OPS_DATA] : OPS_DATA;
+}
+function getAllShopItems() {
+  return G.phase === 'mid' ? [...SHOP_ITEMS, ...MID_SHOP_ITEMS] : SHOP_ITEMS;
+}
+
+
 // ═══════════════════════════════════════════
 const EVENTS = [
   { prob:0.3, fn:()=>{ const r=Math.floor(5+Math.random()*15); earnDD(r,null); notify('💌 Phish Landed','Someone clicked your old link. +'+r+' DD','success'); addLog('Passive phish hit +'+r+'DD','pos'); }},
@@ -2493,50 +2718,76 @@ function toggleHelp(i) {
 // TASKS / CHECKLIST
 // ═══════════════════════════════════════════
 const TASKS_DATA = [
-  { id:'t1',  name:'First Blood',      desc:'Run your first Scam Op',                reward:20,  xp:30,  check:()=>G.scamsRun>=1 },
-  { id:'t2',  name:'Inbox Raider',     desc:'Send a phishing email manually',         reward:15,  xp:20,  check:()=>G.phishSent>=1 },
-  { id:'t3',  name:'Triple Op',        desc:'Run 3 Scam Ops total',                   reward:40,  xp:50,  check:()=>G.scamsRun>=3 },
-  { id:'t4',  name:'First Upgrade',    desc:'Buy any upgrade from the Black Market',  reward:50,  xp:60,  check:()=>Object.values(G.upgrades).some(v=>v) },
-  { id:'t5',  name:'Phish Hunter',     desc:'Successfully hook 5 phishing targets',   reward:60,  xp:70,  check:()=>G.phishSuccess>=5 },
-  { id:'t6',  name:'Bank Job',         desc:'Harvest bank credentials',               reward:80,  xp:80,  check:()=>G.scamsRun>=5 && Math.floor(G.totalEarned)>=80 },
-  { id:'t7',  name:'Century',          desc:'Earn 100 DD total',                      reward:100, xp:100, check:()=>Math.floor(G.totalEarned)>=100 },
-  { id:'t8',  name:'Go Dark',          desc:'Buy the VPN Bundle upgrade',             reward:60,  xp:50,  check:()=>G.upgrades.vpn },
-  { id:'t9',  name:'Campaign Manager', desc:'Send 50+ phish emails (Studio or manual)',reward:80, xp:80,  check:()=>G.phishSent>=50 },
-  { id:'t10', name:'Heat Check',       desc:'Reach Wanted Level 3★',                 reward:30,  xp:40,  check:()=>G.wantedLevel>=3 },
-  { id:'t11', name:'Clean Slate',      desc:'Launder money to reduce heat',           reward:50,  xp:60,  check:()=>G.log.some(l=>l.msg&&l.msg.includes('Laundered')) },
-  { id:'t12', name:'Grinder',          desc:'Run 10 Scam Ops total',                  reward:120, xp:120, check:()=>G.scamsRun>=10 },
-  { id:'t13', name:'Level Up',         desc:'Reach Level 3',                          reward:150, xp:0,   check:()=>G.level>=3 },
-  { id:'t14', name:'Half Grand',       desc:'Earn 500 DD total',                      reward:200, xp:150, check:()=>Math.floor(G.totalEarned)>=500 },
-  { id:'t15', name:'Botnet Operator',  desc:'Own a Botnet for passive income',        reward:300, xp:200, check:()=>G.upgrades.botnet },
+  // ── EARLY GAME ──────────────────────────────
+  { id:'t1',  phase:'early', name:'First Blood',        desc:'Complete your first Scam Op',              reward:10,  xp:20,  check:()=>G.scamsRun>=1 },
+  { id:'t2',  phase:'early', name:'Phisher',            desc:'Send 5 phishing emails manually',          reward:20,  xp:25,  check:()=>G.phishSent>=5 },
+  { id:'t3',  phase:'early', name:'Five Ops',           desc:'Complete 5 Scam Ops total',                reward:35,  xp:40,  check:()=>G.scamsRun>=5 },
+  { id:'t4',  phase:'early', name:'First Purchase',     desc:'Buy any upgrade from the Black Market',    reward:40,  xp:50,  check:()=>Object.values(G.upgrades).some(v=>v) },
+  { id:'t5',  phase:'early', name:'Hook 10',            desc:'Successfully hook 10 phishing targets',    reward:50,  xp:60,  check:()=>G.phishSuccess>=10 },
+  { id:'t6',  phase:'early', name:'Banker',             desc:'Harvest bank credentials 3 times',         reward:65,  xp:70,  check:()=>G.log.filter(l=>l.msg&&l.msg.includes('Bank creds')).length>=3 },
+  { id:'t7',  phase:'early', name:'First 250',          desc:'Earn 250 DD total',                        reward:60,  xp:60,  check:()=>Math.floor(G.totalEarned)>=250 },
+  { id:'t8',  phase:'early', name:'Go Dark',            desc:'Buy the VPN Bundle',                       reward:70,  xp:55,  check:()=>G.upgrades.vpn },
+  { id:'t9',  phase:'early', name:'Hot & Bothered',     desc:'Reach Wanted Level 3★',                   reward:40,  xp:45,  check:()=>G.wantedPeak>=3 },
+  { id:'t10', phase:'early', name:'Clean Hands',        desc:'Launder money for the first time',         reward:55,  xp:55,  check:()=>G.launders>=1 },
+  { id:'t11', phase:'early', name:'Ten Ops',            desc:'Complete 10 Scam Ops',                     reward:100, xp:100, check:()=>G.scamsRun>=10 },
+  { id:'t12', phase:'early', name:'Level 3',            desc:'Reach Level 3',                            reward:120, xp:0,   check:()=>G.level>=3 },
+  { id:'t13', phase:'early', name:'Campaign Pro',       desc:'Send a phishing campaign of 100+ emails',  reward:90,  xp:80,  check:()=>G.phishSent>=100 },
+  { id:'t14', phase:'early', name:'First Grand',        desc:'Earn 1,000 DD total',                      reward:200, xp:150, check:()=>Math.floor(G.totalEarned)>=1000 },
+  { id:'t15', phase:'early', name:'Passive Income',     desc:'Own Burner Phones or Botnet',              reward:150, xp:100, check:()=>G.upgrades.burnerPhones||G.upgrades.botnet },
+  { id:'t16', phase:'early', name:'Heat Management',    desc:'Get busted by LEO and survive',            reward:200, xp:120, check:()=>G.log.some(l=>l.msg&&l.msg.includes('LEO RAID')) },
+  { id:'t17', phase:'early', name:'Level 5',            desc:'Reach Level 5',                            reward:300, xp:0,   check:()=>G.level>=5 },
+  { id:'t18', phase:'early', name:'Five Grand',         desc:'Earn 5,000 DD total',                      reward:500, xp:250, check:()=>Math.floor(G.totalEarned)>=5000 },
+  { id:'t19', phase:'early', name:'Romance Artist',     desc:'Complete a Romance Con op',                reward:250, xp:200, check:()=>G.log.some(l=>l.msg&&l.msg.includes('Romance Con')) },
+  { id:'t20', phase:'early', name:'Going Pro',          desc:'Earn 10,000 DD total — Mid-game unlocks!', reward:1000,xp:500, check:()=>Math.floor(G.totalEarned)>=10000 },
+  // ── MID GAME ────────────────────────────────
+  { id:'m1',  phase:'mid',   name:'Property Baron',     desc:'Buy your first mid-game property',         reward:500, xp:300, check:()=>G.upgrades.callCentre||G.upgrades.moneyMule||G.upgrades.cryptoExchange||G.upgrades.safeHouse },
+  { id:'m2',  phase:'mid',   name:'Call Centre Boss',   desc:'Own the Scam Call Centre',                 reward:800, xp:400, check:()=>G.upgrades.callCentre },
+  { id:'m3',  phase:'mid',   name:'Mule Driver',        desc:'Complete 3 Money Mule Run ops',            reward:600, xp:350, check:()=>G.log.filter(l=>l.msg&&l.msg.includes('Money Mule Run')).length>=3 },
+  { id:'m4',  phase:'mid',   name:'SIM Swapper',        desc:'Complete a SIM Swap op',                   reward:500, xp:300, check:()=>G.log.some(l=>l.msg&&l.msg.includes('SIM Swap')) },
+  { id:'m5',  phase:'mid',   name:'Level 8',            desc:'Reach Level 8',                            reward:1000,xp:0,   check:()=>G.level>=8 },
+  { id:'m6',  phase:'mid',   name:'Laundromat',         desc:'Launder money 5 times',                    reward:700, xp:400, check:()=>G.launders>=5 },
+  { id:'m7',  phase:'mid',   name:'Investment King',    desc:'Complete Investment Fraud op',             reward:1200,xp:600, check:()=>G.log.some(l=>l.msg&&l.msg.includes('Investment Fraud')) },
+  { id:'m8',  phase:'mid',   name:'25k Club',           desc:'Earn 25,000 DD total',                     reward:2000,xp:800, check:()=>Math.floor(G.totalEarned)>=25000 },
+  { id:'m9',  phase:'mid',   name:'Phantom',            desc:'Reach Level 12',                           reward:3000,xp:0,   check:()=>G.level>=12 },
+  { id:'m10', phase:'mid',   name:'Ghost Operator',     desc:'Earn 50,000 DD total',                     reward:5000,xp:1000,check:()=>Math.floor(G.totalEarned)>=50000 },
 ];
 let tasksClaimed = {};
 
 function renderTasks(container) {
   checkTaskCompletion();
-  const done = TASKS_DATA.filter(t=>t.check()).length;
+  const visible = TASKS_DATA.filter(t=>t.phase==='early'||(t.phase==='mid'&&G.phase==='mid'));
+  const done = visible.filter(t=>t.check()).length;
+  const earlyTasks = TASKS_DATA.filter(t=>t.phase==='early');
+  const midTasks = TASKS_DATA.filter(t=>t.phase==='mid');
+  const taskRow = (t)=>{
+    const isDone = t.check();
+    const claimed = !!tasksClaimed[t.id];
+    const canClaim = isDone && !claimed;
+    return `<div style="background:var(--panel2);border:1px solid ${claimed?'#152015':isDone?'var(--green)':'var(--border)'};border-radius:5px;padding:10px 12px;opacity:${claimed?0.4:1};transition:all 0.3s">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px">${claimed?'✅':isDone?'🟩':'⬜'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:${claimed?'var(--text2)':isDone?'var(--green)':'var(--text)'};text-decoration:${claimed?'line-through':'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:1px;line-height:1.4">${t.desc}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:10px;color:var(--yellow)">+${t.reward}DD</div>
+          ${t.xp?`<div style="font-size:9px;color:var(--purple)">+${t.xp}XP</div>`:''}
+        </div>
+      </div>
+      ${canClaim?`<button class="btn" style="width:100%;margin-top:7px;font-size:10px;padding:4px" onclick="claimTask('${t.id}')">🎁 CLAIM REWARD</button>`:''}
+    </div>`;
+  };
   container.innerHTML = `
-    <div class="section-header"><div class="dot"></div>TASK LIST <span style="margin-left:auto;color:var(--text2)">${done}/${TASKS_DATA.length}</span></div>
-    <div style="height:4px;background:var(--border)"><div style="height:100%;background:linear-gradient(90deg,var(--green3),var(--green));width:${Math.round(done/TASKS_DATA.length*100)}%;transition:width 0.5s"></div></div>
+    <div class="section-header"><div class="dot"></div>TASK LIST <span style="margin-left:auto;color:var(--text2)">${done}/${visible.length}</span></div>
+    <div style="height:4px;background:var(--border)"><div style="height:100%;background:linear-gradient(90deg,var(--green3),var(--green));width:${visible.length?Math.round(done/visible.length*100):0}%;transition:width 0.5s"></div></div>
     <div style="overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px">
-      ${TASKS_DATA.map(t=>{
-        const isDone = t.check();
-        const claimed = !!tasksClaimed[t.id];
-        const canClaim = isDone && !claimed;
-        return `<div style="background:var(--panel2);border:1px solid ${claimed?'#152015':isDone?'var(--green)':'var(--border)'};border-radius:5px;padding:10px 12px;opacity:${claimed?0.45:1};transition:all 0.3s">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:15px">${claimed?'✅':isDone?'🟩':'⬜'}</span>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;color:${claimed?'var(--text2)':isDone?'var(--green)':'var(--text)'};text-decoration:${claimed?'line-through':'none'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
-              <div style="font-size:10px;color:var(--text2);margin-top:1px">${t.desc}</div>
-            </div>
-            <div style="text-align:right;flex-shrink:0">
-              <div style="font-size:10px;color:var(--yellow)">+${t.reward}DD</div>
-              ${t.xp?`<div style="font-size:9px;color:var(--purple)">+${t.xp}XP</div>`:''}
-            </div>
-          </div>
-          ${canClaim?`<button class="btn" style="width:100%;margin-top:7px;font-size:10px;padding:4px" onclick="claimTask('${t.id}')">🎁 CLAIM REWARD</button>`:''}
-        </div>`;
-      }).join('')}
+      <div style="font-size:9px;color:var(--text2);letter-spacing:2px;padding:4px 0">── EARLY GAME ──────────────────</div>
+      ${earlyTasks.map(taskRow).join('')}
+      ${G.phase==='mid'?`
+      <div style="font-size:9px;color:var(--purple);letter-spacing:2px;padding:8px 0 4px;margin-top:4px;border-top:1px solid var(--border)">── MID GAME ─────────────────────</div>
+      ${midTasks.map(taskRow).join('')}`
+      :`<div style="font-size:10px;color:var(--text2);text-align:center;padding:12px;border:1px dashed var(--border);border-radius:5px;margin-top:4px">🔒 Mid-game tasks unlock at 10,000 DD total earned</div>`}
     </div>
   `;
 }
