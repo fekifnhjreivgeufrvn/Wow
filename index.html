@@ -510,6 +510,7 @@ function fmtDD(n){if(n>=1e6)return(n/1e6).toFixed(2)+'M';if(n>=1e3)return(n/1e3)
 // SAVE / LOAD
 // ════════════════════════════════════════════════════════
 const SAVE_KEY='kihtirh_v3_save';
+const SAVE_KEY_V2='kihtirh_v2_save';
 let lastAutoSave=0;
 
 function saveGame(manual=false){
@@ -521,12 +522,21 @@ function saveGame(manual=false){
     if(manual)notify('💾 Saved','Progress stored.','info');
   }catch(e){if(manual)notify('⚠ Save Failed','Storage full?','error');}
 }
+function getRawSave(){
+  // Prefer v3, fall back to v2
+  const v3=localStorage.getItem(SAVE_KEY);
+  if(v3)return{raw:v3,fromV2:false};
+  const v2=localStorage.getItem(SAVE_KEY_V2);
+  if(v2)return{raw:v2,fromV2:true};
+  return null;
+}
 function loadSave(){
   try{
-    const raw=localStorage.getItem(SAVE_KEY);
-    if(!raw)return false;
-    const data=JSON.parse(raw);
+    const found=getRawSave();
+    if(!found)return false;
+    const data=JSON.parse(found.raw);
     if(!data.G)return false;
+    if(found.fromV2)data._migratedFromV2=true;
     // Migrate from v2 saves
     if(!data.G.upgrades.honeypotDisruptor)data.G.upgrades.honeypotDisruptor=false;
     if(!data.G.upgrades.counterIntelUnit)data.G.upgrades.counterIntelUnit=false;
@@ -545,14 +555,19 @@ function loadSave(){
     return data;
   }catch(e){return false;}
 }
-function hasSave(){try{return!!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
+function hasSave(){try{return!!(localStorage.getItem(SAVE_KEY)||localStorage.getItem(SAVE_KEY_V2));}catch(e){return false;}}
 function loadSaveAndStart(){
   const data=loadSave();
   if(!data){document.getElementById('save-status').textContent='No save found.';setTimeout(()=>startGame(),800);return;}
   document.getElementById('intro').style.display='none';
   PHASES.forEach(p=>document.body.classList.remove(p.cls));
   document.body.classList.add(PHASES[currentPhaseIdx].cls);
-  notify('📂 Loaded',`Welcome back. ${fmtDD(G.totalEarned)} DD earned.`,'info');
+  if(data._migratedFromV2){
+    notify('📂 v2 Save Migrated',`Welcome back. ${fmtDD(G.totalEarned)} DD carried over.`,'info');
+    setTimeout(()=>saveGame(false),500);
+  } else {
+    notify('📂 Loaded',`Welcome back. ${fmtDD(G.totalEarned)} DD earned.`,'info');
+  }
   startGameLoop();
 }
 function autoSave(){const n=Date.now();if(n-lastAutoSave>30000){lastAutoSave=n;const ind=document.getElementById('save-indicator');if(ind){ind.textContent='…';ind.className='saving';}setTimeout(()=>saveGame(false),200);}}
@@ -575,8 +590,17 @@ function dismissBoot(){
 }
 function checkSaveOnIntro(){
   const ss=document.getElementById('save-status');
-  if(hasSave()){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY));ss.textContent=`Save found — ${fmtDD(d.G.totalEarned)} DD, Level ${d.G.level}.`;ss.style.color='var(--acc)';}catch(e){ss.textContent='Save found.';}}
-  else ss.textContent='No save — fresh start.';
+  const found=getRawSave();
+  if(found){
+    try{
+      const d=JSON.parse(found.raw);
+      const label=found.fromV2?'v2 save found (will migrate)':'Save found';
+      ss.textContent=`${label} — ${fmtDD(d.G.totalEarned)} DD, Level ${d.G.level}.`;
+      ss.style.color=found.fromV2?'var(--yellow)':'var(--acc)';
+    }catch(e){ss.textContent='Save found.';}
+  } else {
+    ss.textContent='No save — fresh start.';
+  }
 }
 document.addEventListener('DOMContentLoaded',function(){
   const b=document.getElementById('boot');
