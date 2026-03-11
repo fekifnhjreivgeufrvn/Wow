@@ -568,7 +568,7 @@ function loadSaveAndStart(){
   } else {
     notify('📂 Loaded',`Welcome back. ${fmtDD(G.totalEarned)} DD earned.`,'info');
   }
-  startGameLoop();
+  startGameLoop(true);
 }
 function autoSave(){const n=Date.now();if(n-lastAutoSave>30000){lastAutoSave=n;const ind=document.getElementById('save-indicator');if(ind){ind.textContent='…';ind.className='saving';}setTimeout(()=>saveGame(false),200);}}
 
@@ -736,7 +736,7 @@ function sendPhishEmail(){
     addLog(`Phish → ${to} +${reward}DD`,'pos');
     notify('📧 Hooked!',`+${reward} DD`,'success');
     if(res)res.innerHTML=`<span style="color:var(--acc)">✓ +${reward} DD (10s cd)</span>`;
-    gainXP(10);addWanted(0.2);
+    gainXP(10);addWanted(0.2); // manual phish — not covered by honeypot
   } else {
     if(res)res.innerHTML=`<span style="color:var(--red)">✗ Blocked. (10s cd)</span>`;
   }
@@ -829,7 +829,7 @@ function harvestCreds(){
   earnDD(reward,null);G.scamsRun++;
   addLog(`Bank harvest +${reward}DD`,'pos');
   notify('🏦 Harvested!',`+${reward} DD`,'success');
-  gainXP(22);addWanted(0.6);G.bankHarvestCooldown=now4+40000;
+  gainXP(22);addWanted(0.6);G.bankHarvestCooldown=now4+40000; // browser action — not covered by honeypot
   if(m)m.innerHTML=`<span style="color:green">✓ Harvested. 40s cd</span>`;
   setTimeout(()=>{if(m)m.innerHTML='';['fake-user','fake-pass','fake-dob'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});},2000);
 }
@@ -860,7 +860,7 @@ function doLaunder(){
 // ════════════════════════════════════════════════════════
 const HEAT_SHOP=[
   {id:'vpn_basic',name:'VPN Bundle',icon:'🛡️',cost:50,desc:'Reduces all op heat gain by 40%.',effect:()=>{if(!G.upgrades.vpn){G.upgrades.vpn=true;notify('🛡️ VPN Active','-40% heat gain','success');}},owned:()=>G.upgrades.vpn},
-  {id:'honeypot',name:'Honeypot Disruptor',icon:'🍯',cost:120,desc:'Ops no longer automatically raise heat. Heat only rises from busts & random events.',effect:()=>{G.upgrades.honeypotDisruptor=true;notify('🍯 Honeypot Active','Op heat gain disabled','success');},owned:()=>G.upgrades.honeypotDisruptor},
+  {id:'honeypot',name:'Honeypot Disruptor',icon:'🍯',cost:120,desc:'Reduces op execution heat by 80%. Does NOT protect phish campaigns, manual emails, or browser actions — those still generate investigator attention.',effect:()=>{G.upgrades.honeypotDisruptor=true;notify('🍯 Honeypot Active','Op execution heat -80%','success');},owned:()=>G.upgrades.honeypotDisruptor},
   {id:'counter_intel',name:'Counter-Intel Unit',icon:'🕵️',cost:280,desc:'Unlocks Counter-Intel minigame. Win to reduce heat by 0.8★.',effect:()=>{G.upgrades.counterIntelUnit=true;notify('🕵️ CI Unit Hired','Counter-Intel minigame unlocked','success');openWindow('counterintel');},owned:()=>G.upgrades.counterIntelUnit},
   {id:'ghost_prot',name:'Ghost Protocol',icon:'👻',cost:600,desc:'Massive heat reduction. Launder reduces heat by up to 5★. All heat gain -70%.',effect:()=>{G.upgrades.ghostProtocol=true;notify('👻 Ghost Protocol','Heat gain -70%. Launder now reduces up to 5★','success');},owned:()=>G.upgrades.ghostProtocol,requires:{totalReq:12000}},
   {id:'quantum_enc',name:'Quantum Encryption',icon:'🔮',cost:2500,desc:'Cooldowns -50%. Heat decay 5x faster. Essentially makes you invisible.',effect:()=>{G.upgrades.quantumEncrypt=true;G._cooldownMult=0.5;notify('🔮 Quantum Encrypted','Cooldowns -50%, heat decay 5x','success');},owned:()=>G.upgrades.quantumEncrypt,requires:{totalReq:50000}},
@@ -1218,8 +1218,11 @@ function runOp(id){
     const leakBonus=G.upgrades.leakDatabase?1.2:1;
     const reward=Math.floor((op.reward[0]+Math.random()*(op.reward[1]-op.reward[0]))*G.multiplier*bonus*zdBonus*leakBonus*(G._rewardBonus||1));
     earnDD(reward,null);G.scamsRun++;gainXP(op.xp);
-    // Heat: honeypot disruptor kills auto-heat from ops
-    if(!G.upgrades.honeypotDisruptor){addWanted(op.wantedGain);}
+    // Honeypot Disruptor muffles op-specific execution heat by 80%.
+    // A residual 20% still leaks — high volume still builds investigator attention.
+    // It does NOT protect against phish campaigns, manual emails, or random events.
+    const heatMult=G.upgrades.honeypotDisruptor?0.2:1.0;
+    if(op.wantedGain>0) addWanted(op.wantedGain*heatMult);
     notify(`${op.icon} ${op.name}`,`+${fmtDD(reward)} DD`,'success');
     addLog(`${op.name} +${fmtDD(reward)}DD`,'pos');
     refreshOpsList();
@@ -1232,39 +1235,49 @@ function runOp(id){
 // SHOP — extended
 // ════════════════════════════════════════════════════════
 const SHOP_ITEMS=[
-  {id:'spellcheck',name:'Spell Checker Pro',icon:'✏️',cost:30,effect:'+25% phish rate',desc:'Fixes typos.',requires:null},
-  {id:'smsSpoofer',name:'SMS Spoofer',icon:'📱',cost:60,effect:'Unlocks SMS ops',desc:'Send smishing campaigns.',requires:null},
-  {id:'phishKit',name:'Phish Kit v2',icon:'🎣',cost:80,effect:'+40% bank phish reward',desc:'Pro templates.',requires:null},
+  // ── STARTER (no level req or level ≤ 2) ──
+  {id:'spellcheck',name:'Spell Checker Pro',icon:'✏️',cost:30,effect:'+25% phish success rate',desc:'Fixes typos. Victims less suspicious.',requires:null},
+  {id:'vpn',name:'VPN Bundle',icon:'🛡️',cost:50,effect:'-40% heat on ALL sources (ops, phish, browser)',desc:'5 proxy layers. Applies globally. Also in Heat app.',requires:null},
+  {id:'smsSpoofer',name:'SMS Spoofer',icon:'📱',cost:60,effect:'Unlocks SMS smishing ops',desc:'Send campaigns from any number.',requires:null},
+  {id:'phishKit',name:'Phish Kit v2',icon:'🎣',cost:80,effect:'+40% bank phish reward',desc:'Professional templates.',requires:null},
+  {id:'burnerPhones',name:'Burner Phone Farm',icon:'📲',cost:120,effect:'+1.5 DD/s passive',desc:'24/7 SMS scam network.',requires:{level:2}},
   {id:'proxychains',name:'ProxyChain Rotator',icon:'🔄',cost:90,effect:'Cooldowns -20%',desc:'Route through 12 proxies.',requires:{level:2}},
-  {id:'socialEng',name:'SocEng Toolkit',icon:'🎭',cost:100,effect:'Unlocks social ops',desc:'Vishing, pretexting, scripts.',requires:{level:2}},
-  {id:'leakDatabase',name:'Breach Database',icon:'🗄️',cost:130,effect:'+20% all op rewards',desc:'50M compromised creds.',requires:{level:3}},
-  {id:'identityPack',name:'Identity Pack',icon:'🪪',cost:150,effect:'Unlocks Crypto Pump',desc:'Stolen IDs.',requires:{level:3}},
-  {id:'darkwebAccess',name:'Darkweb Premium',icon:'🕸️',cost:160,effect:'+0.5 DD/s passive',desc:'Premium darknet feeds.',requires:{level:3}},
-  {id:'burnerPhones',name:'Burner Phone Farm',icon:'📲',cost:120,effect:'+1.5 DD/s passive',desc:'SMS scam network.',requires:{level:2}},
-  {id:'botnet',name:'Botnet (500 nodes)',icon:'🤖',cost:300,effect:'+5 DD/s passive',desc:'Automated army.',requires:{level:4}},
-  {id:'cryptoMixer',name:'Crypto Mixer Access',icon:'💱',cost:200,effect:'Launder CD -50%, fee 12%',desc:'VIP mixer access.',requires:{level:4}},
-  {id:'callCentre',name:'Scam Call Centre',icon:'☎️',cost:2500,effect:'+8 DD/s passive',desc:'50 agents on payroll.',requires:{totalReq:15000,level:6}},
+  {id:'socialEng',name:'SocEng Toolkit',icon:'🎭',cost:100,effect:'Unlocks social engineering ops',desc:'Vishing, pretexting, impersonation.',requires:{level:2}},
+  // ── MID-EARLY (level 3–4, no totalReq) ──
+  {id:'leakDatabase',name:'Breach Database',icon:'🗄️',cost:130,effect:'+20% all op rewards',desc:'50M compromised credentials.',requires:{level:3}},
+  {id:'identityPack',name:'Identity Pack',icon:'🪪',cost:150,effect:'Unlocks Crypto Pump op',desc:'Stolen IDs for high-level ops.',requires:{level:3}},
+  {id:'darkwebAccess',name:'Darkweb Premium',icon:'🕸️',cost:160,effect:'+0.5 DD/s passive',desc:'Premium darknet intel feeds.',requires:{level:3}},
+  {id:'botnet',name:'Botnet (500 nodes)',icon:'🤖',cost:300,effect:'+5 DD/s passive',desc:'Automated spam/phish army.',requires:{level:4}},
+  {id:'cryptoMixer',name:'Crypto Mixer Access',icon:'💱',cost:200,effect:'Launder CD -50%, fee 12%',desc:'VIP mixer. Also reduces launder CD.',requires:{level:4}},
+  // ── MID-GAME (totalReq: 15k) ──
+  {id:'safeHouse',name:'Safe House Network',icon:'🏠',cost:1200,effect:'-50% LEO seizure on bust',desc:'Distribute assets across safe houses.',requires:{totalReq:15000,level:5}},
   {id:'moneyMule',name:'Money Mule Network',icon:'🐎',cost:1800,effect:'+4 DD/s passive',desc:'Financial mule network.',requires:{totalReq:15000,level:5}},
-  {id:'cryptoExchange',name:'Crypto Exchange Front',icon:'🏦',cost:3500,effect:'+10 DD/s, fee 8%',desc:'Your own exchange.',requires:{totalReq:15000,level:7}},
-  {id:'safeHouse',name:'Safe House Network',icon:'🏠',cost:1200,effect:'-50% LEO seizure',desc:'Distributed assets.',requires:{totalReq:15000,level:5}},
-  {id:'zeroDay',name:'Zero-Day Exploit Kit',icon:'💀',cost:8000,effect:'x2.0 all op rewards',desc:'Weaponised exploits.',requires:{totalReq:60000,level:10}},
-  {id:'insiderContact',name:'Insider Contact',icon:'🤝',cost:5000,effect:'Unlocks SIM Swap op',desc:'Bribed telco insider.',requires:{totalReq:60000,level:8}},
-  {id:'shadowBanker',name:'Shadow Banker',icon:'🏦',cost:15000,effect:'+x0.5 all rewards + unlocks T5 op',desc:'Offshore accounts, crypto cartel access.',requires:{totalReq:250000,level:16}},
-  {id:'darkMirror',name:'Dark Mirror Network',icon:'🪞',cost:25000,effect:'Passive income x2',desc:'Mirror infrastructure doubles passives.',requires:{totalReq:750000,level:18}},
+  {id:'callCentre',name:'Scam Call Centre',icon:'☎️',cost:2500,effect:'+8 DD/s passive',desc:'50 agents on payroll.',requires:{totalReq:15000,level:6}},
+  {id:'cryptoExchange',name:'Crypto Exchange Front',icon:'🏦',cost:3500,effect:'+10 DD/s, launder fee 8%',desc:'Your own exchange.',requires:{totalReq:15000,level:7}},
+  // ── HIGH-VALUE (totalReq: 60k) ──
+  {id:'insiderContact',name:'Insider Contact',icon:'🤝',cost:5000,effect:'Unlocks Telco SIM Swap op',desc:'Bribed employee at major telco.',requires:{totalReq:60000,level:8}},
+  {id:'zeroDay',name:'Zero-Day Exploit Kit',icon:'💀',cost:8000,effect:'x2.0 all op rewards',desc:'Weaponised zero-days.',requires:{totalReq:60000,level:10}},
+  // ── NATION-STATE (totalReq: 250k) ──
+  {id:'shadowBanker',name:'Shadow Banker',icon:'🏦',cost:15000,effect:'+x0.5 rewards, unlocks T5 op',desc:'Offshore accounts. Crypto cartel access.',requires:{totalReq:250000,level:16}},
+  // ── SYNDICATE (totalReq: 750k) ──
+  {id:'darkMirror',name:'Dark Mirror Network',icon:'🪞',cost:25000,effect:'Passive income x2',desc:'Mirror infrastructure.',requires:{totalReq:750000,level:18}},
   {id:'syndicateContract',name:'Syndicate Contract',icon:'📜',cost:10000,effect:'Unlocks APT Broker op',desc:'Formalised criminal network.',requires:{totalReq:750000,level:18}},
+  // ── APEX (totalReq: 2M) ──
   {id:'apexAccess',name:'Apex Access',icon:'👑',cost:50000,effect:'Unlocks Sovereign Dark Fund',desc:'Invitation-only apex tier.',requires:{totalReq:2000000,level:22}},
 ];
 function renderShop(container){
   const byPhase=[
-    {title:'STARTER LOADOUT',items:SHOP_ITEMS.filter(i=>!i.requires?.totalReq&&(!i.requires?.level||i.requires.level<=4))},
-    {title:'MID-GAME INFRASTRUCTURE',req:15000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=15000&&i.requires?.totalReq<250000)},
-    {title:'HIGH-VALUE ASSETS',req:250000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=250000&&i.requires?.totalReq<750000)},
-    {title:'SYNDICATE TIER',req:750000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=750000&&i.requires?.totalReq<2000000)},
-    {title:'APEX TIER',req:2000000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=2000000)},
+    {title:'STARTER LOADOUT',        req:0,     items:SHOP_ITEMS.filter(i=>!i.requires?.totalReq&&(!i.requires?.level||i.requires.level<=2))},
+    {title:'MID-EARLY UPGRADES',     req:0,     items:SHOP_ITEMS.filter(i=>!i.requires?.totalReq&&i.requires?.level>=3&&i.requires?.level<=4)},
+    {title:'MID-GAME INFRASTRUCTURE',req:15000, items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=15000&&i.requires?.totalReq<60000)},
+    {title:'HIGH-VALUE ASSETS',      req:60000, items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=60000&&i.requires?.totalReq<250000)},
+    {title:'NATION-STATE TIER',      req:250000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=250000&&i.requires?.totalReq<750000)},
+    {title:'SYNDICATE TIER',         req:750000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=750000&&i.requires?.totalReq<2000000)},
+    {title:'APEX TIER',              req:2000000,items:SHOP_ITEMS.filter(i=>i.requires?.totalReq>=2000000)},
   ];
   container.innerHTML=`<div class="section-header"><div class="dot"></div>BLACK MARKET <span style="margin-left:auto;color:var(--yellow);font-size:9px">${fmtDD(G.dd)} DD</span></div>`+
-    byPhase.filter(s=>!s.req||G.totalEarned>=s.req*0.5).map(s=>`
-      <div class="section-header" style="${s.req&&G.totalEarned<s.req?'opacity:.4':''}"><div class="dot"></div>${s.title}${s.req&&G.totalEarned<s.req?` <span style="font-size:8px;color:var(--red)">(${fmtDD(s.req)} total req)</span>`:''}</div>
+    byPhase.filter(s=>s.req===0||G.totalEarned>=s.req*0.4).map(s=>`
+      <div class="section-header" style="${s.req>0&&G.totalEarned<s.req?'opacity:.5':''}"><div class="dot"></div>${s.title}${s.req>0&&G.totalEarned<s.req?` <span style="font-size:8px;color:var(--red)">(need ${fmtDD(s.req)} DD total)</span>`:''}</div>
       <div class="shop-grid">${s.items.map(item=>shopItemHTML(item)).join('')}</div>
     `).join('');
 }
@@ -1297,6 +1310,7 @@ function buyItem(id){
   gainXP(30);
   if(document.getElementById('wbody-shop'))renderShop(document.getElementById('wbody-shop'));
   if(document.getElementById('wbody-ops'))renderOps(document.getElementById('wbody-ops'));
+  if(document.getElementById('wbody-heatmgmt'))renderHeatMgmt(document.getElementById('wbody-heatmgmt'));
 }
 
 // ════════════════════════════════════════════════════════
@@ -1375,7 +1389,10 @@ function launchPhishCampaign(){
   const reward=Math.floor(hooks*6*G.multiplier*(G._rewardBonus||1));
   earnDD(reward,null);G.phishSent+=count;G.phishSuccess+=hooks;G.scamsRun++;
   gainXP(hooks*2);
-  if(!G.upgrades.honeypotDisruptor)addWanted(count/200);
+  // Phishing campaigns generate heat from investigator pattern-detection,
+  // not op execution — Honeypot does NOT protect against this.
+  // VPN and Ghost Protocol still apply their multipliers.
+  addWanted(count/200);
   const cdMs=Math.floor((60000+(count/1000)*100000)*(G._cooldownMult||1));
   G.phishCampaignCooldown=now4+cdMs;
   if(result)result.innerHTML=`<span style="color:var(--acc)">✓ ${hooks}/${count} hooked. +${fmtDD(reward)} DD.</span>`;
@@ -1690,21 +1707,63 @@ function renderTutStep(){
 // ════════════════════════════════════════════════════════
 // START GAME
 // ════════════════════════════════════════════════════════
+// ── WINDOW LAYOUT PERSISTENCE ──────────────────────────────
+const LAYOUT_KEY='kihtirh_v3_layout';
+function saveLayout(){
+  const layout={};
+  Object.entries(windows).forEach(([id,w])=>{
+    if(!w.minimized){
+      const el=w.el;
+      layout[id]={x:parseInt(el.style.left)||0,y:parseInt(el.style.top)||0,
+                  width:parseInt(el.style.width)||w.cfg.w,height:parseInt(el.style.height)||w.cfg.h};
+    }
+  });
+  try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));}catch(e){}
+}
+function restoreLayout(){
+  try{
+    const raw=localStorage.getItem(LAYOUT_KEY);
+    if(!raw)return false;
+    const layout=JSON.parse(raw);
+    Object.entries(layout).forEach(([id,pos])=>{
+      openWindow(id);
+      const w=windows[id];
+      if(w){
+        w.el.style.left=pos.x+'px';w.el.style.top=pos.y+'px';
+        w.el.style.width=pos.width+'px';w.el.style.height=pos.height+'px';
+        clampWindow(w.el);
+      }
+    });
+    return true;
+  }catch(e){return false;}
+}
+
 function startGame(){
   document.getElementById('intro').style.display='none';
   notify('🖥️ System Online','Kihtirh v3.0 — Ghost Protocol.','info');
   notify('📧 New Mail','2 unread messages.','info');
-  startGameLoop();
+  startGameLoop(false);
 }
-function startGameLoop(){
+function startGameLoop(isReturning=false){
   updateUI();updateWanted();updateXPBar();
   PHASES.forEach(p=>document.body.classList.remove(p.cls));
   document.body.classList.add(PHASES[currentPhaseIdx].cls);
   document.getElementById('tb-phase').textContent=PHASES[currentPhaseIdx].tbName;
   gameLoop();
   setInterval(triggerRandomEvent,14000+Math.random()*8000);
-  setTimeout(()=>{openWindow('ops');openWindow('email');openWindow('heatmgmt');},300);
-  setTimeout(()=>showTutorial(),900);
+  // Save layout every 15s
+  setInterval(saveLayout,15000);
+  setTimeout(()=>{
+    if(isReturning){
+      // Returning player: restore saved window positions, skip tutorial
+      const restored=restoreLayout();
+      if(!restored){openWindow('ops');openWindow('email');openWindow('heatmgmt');}
+    } else {
+      // Fresh start: open defaults and show tutorial
+      openWindow('ops');openWindow('email');openWindow('heatmgmt');
+      setTimeout(()=>showTutorial(),600);
+    }
+  },300);
 }
 
 runBoot();
