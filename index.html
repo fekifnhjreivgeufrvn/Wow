@@ -92,9 +92,10 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .win-title{display:flex;align-items:center;padding:0 10px;height:30px;background:var(--panel2);border-bottom:1px solid var(--border);border-radius:6px 6px 0 0;cursor:move;gap:8px;flex-shrink:0}
 .win-name{font-size:10px;color:var(--text2);flex:1;letter-spacing:1px}
 .win.focused .win-name{color:var(--acc)}
-.win-btns{display:flex;gap:5px;margin-left:auto}
-.win-btn{width:11px;height:11px;border-radius:50%;border:none;cursor:pointer;transition:all .2s;opacity:.6}
+.win-btns{display:flex;gap:8px;margin-left:auto;padding:0 2px}
+.win-btn{width:14px;height:14px;border-radius:50%;border:none;cursor:pointer;transition:all .2s;opacity:.7;position:relative;flex-shrink:0}
 .win-btn:hover{opacity:1;transform:scale(1.2)}
+.win-btn::before{content:'';position:absolute;inset:-8px;border-radius:50%}
 .win-btn.close{background:var(--red)}
 .win-btn.min{background:var(--yellow)}
 .win-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--acc3) transparent}
@@ -293,6 +294,33 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--acc3);border-radius:2px}
+
+/* ── ABILITY APP ─────────────────────────────────────────── */
+.ability-card{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:8px 14px;transition:all .2s}
+.ability-card:hover{border-color:rgba(var(--acc-r),.3)}
+.ability-card .ab-name{font-size:13px;color:var(--acc);font-family:var(--font-title);letter-spacing:1px;margin-bottom:4px}
+.ability-card .ab-desc{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.ability-bar-wrap{height:5px;background:var(--border);border-radius:3px;margin-bottom:8px;overflow:hidden}
+.ability-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .5s;box-shadow:0 0 6px rgba(var(--acc-r),.5)}
+.ability-row{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text2);margin-bottom:6px}
+.ability-cost{color:var(--yellow);font-weight:bold}
+.ability-max{color:var(--acc);font-style:italic}
+
+/* ── RELIC GALLERY ───────────────────────────────────────── */
+.relic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 14px}
+.relic-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px 10px;text-align:center;transition:all .3s}
+.relic-card.unlocked{border-color:rgba(var(--acc-r),.4);box-shadow:0 0 12px rgba(var(--acc-r),.1)}
+.relic-card.locked{opacity:.4;filter:grayscale(1)}
+.relic-card .rel-icon{font-size:28px;margin-bottom:6px}
+.relic-card .rel-name{font-size:10px;color:var(--acc);letter-spacing:1px;margin-bottom:3px}
+.relic-card .rel-cond{font-size:9px;color:var(--text2);line-height:1.5}
+.relic-card.unlocked .rel-cond{color:var(--yellow)}
+
+/* ── RICH TARGET / JACKPOT ───────────────────────────────── */
+.notif.jackpot{border-left-color:#ffd700;background:rgba(255,215,0,.06)}
+.notif.jackpot .n-title{color:#ffd700}
+@keyframes richFlash{0%{box-shadow:0 0 20px rgba(255,215,0,.7)}50%{box-shadow:0 0 50px rgba(255,215,0,1)}100%{box-shadow:0 0 20px rgba(255,215,0,.7)}}
+
 </style>
 </head>
 <body class="phase-0">
@@ -337,6 +365,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <button class="tb-btn" onclick="openWindow('tasks')">✅</button>
   <button class="tb-btn" onclick="openWindow('stats')">📊</button>
   <button class="tb-btn" onclick="openWindow('help')">❓</button>
+  <button class="tb-btn" onclick="openWindow('abilities')">⚡ Skills</button>
+  <button class="tb-btn" onclick="openWindow('relics')">🏆 Relics</button>
   <div class="tb-sep"></div>
   <div class="tb-chip" id="tb-phase">T0</div>
   <div id="wanted-row">
@@ -368,6 +398,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <div class="desk-icon" ondblclick="openWindow('heatmgmt')"><div class="ico">🧊</div><div class="lbl">Heat Mgmt</div></div>
     <div class="desk-icon" ondblclick="openWindow('stats')"><div class="ico">📊</div><div class="lbl">Dashboard</div></div>
     <div class="desk-icon" ondblclick="openWindow('tasks')"><div class="ico">✅</div><div class="lbl">Tasks</div></div>
+    <div class="desk-icon" ondblclick="openWindow('abilities')"><div class="ico">⚡</div><div class="lbl">Skills</div></div>
+    <div class="desk-icon" ondblclick="openWindow('relics')"><div class="ico">🏆</div><div class="lbl">Relics</div></div>
   </div>
 </div>
 
@@ -489,6 +521,14 @@ const G={
   phishCampaignCooldown:0,bankHarvestCooldown:0,crackCooldown:0,launderCooldown:0,
   totalLaundered:0,wantedPeak:0,launders:0,busts:0,
   _manualPhishCD:0,_rewardBonus:1,_cooldownMult:1,
+  // Skill Refinery
+  abilities:{cooldown:0,reward:0,stealth:0,passive:0,xpGain:0,richChance:0},
+  totalAbilitySpend:0,
+  _abilityRewardMult:1,_stealthMult:1,_passiveMult:1,_xpMult:1,_richMult:1,
+  // Relics
+  relicsUnlocked:[],
+  // Rich targets
+  richTargetsHit:0,
   // Heat management unlocks
   heatItems:{},
   // CI minigame
@@ -549,6 +589,15 @@ function loadSave(){
     if(!data.G.heatItems)data.G.heatItems={};
     if(!data.G._rewardBonus)data.G._rewardBonus=1;
     if(!data.G._cooldownMult)data.G._cooldownMult=1;
+    if(!data.G.abilities)data.G.abilities={cooldown:0,reward:0,stealth:0,passive:0,xpGain:0,richChance:0};
+    if(!data.G.relicsUnlocked)data.G.relicsUnlocked=[];
+    if(data.G.richTargetsHit===undefined)data.G.richTargetsHit=0;
+    if(data.G.totalAbilitySpend===undefined)data.G.totalAbilitySpend=0;
+    if(!data.G._abilityRewardMult)data.G._abilityRewardMult=1;
+    if(!data.G._stealthMult)data.G._stealthMult=1;
+    if(!data.G._passiveMult)data.G._passiveMult=1;
+    if(!data.G._xpMult)data.G._xpMult=1;
+    if(!data.G._richMult)data.G._richMult=1;
     Object.assign(G,data.G);
     currentPhaseIdx=data.currentPhaseIdx||0;
     Object.assign(tasksClaimed,data.tasksClaimed||{});
@@ -568,6 +617,7 @@ function loadSaveAndStart(){
   } else {
     notify('📂 Loaded',`Welcome back. ${fmtDD(G.totalEarned)} DD earned.`,'info');
   }
+  applyAllAbilities();
   startGameLoop(true);
 }
 function autoSave(){const n=Date.now();if(n-lastAutoSave>30000){lastAutoSave=n;const ind=document.getElementById('save-indicator');if(ind){ind.textContent='…';ind.className='saving';}setTimeout(()=>saveGame(false),200);}}
@@ -650,6 +700,8 @@ function openWindow(id){
     counterintel:{title:'Counter-Intel',icon:'🕵️',w:420,h:460,render:renderCounterIntel},
     corpheist:{title:'Corp Heist Planner',icon:'🏢',w:500,h:480,render:renderCorpHeist},
     syndicate:{title:'Syndicate Control',icon:'💀',w:520,h:500,render:renderSyndicate},
+    abilities:{title:'Skill Refinery',icon:'⚡',w:460,h:560,render:renderAbilities},
+    relics:{title:'Relic Gallery',icon:'🏆',w:500,h:520,render:renderRelics},
   };
   const cfg=cfgs[id];if(!cfg)return;
   const oc=Object.keys(windows).length;
@@ -659,7 +711,7 @@ function openWindow(id){
   const win=document.createElement('div');
   win.className='win focused';win.id='win-'+id;
   win.style.cssText=`left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
-  win.innerHTML=`<div class="win-title" id="wtitle-${id}"><span>${cfg.icon}</span><span class="win-name">${cfg.title}</span><div class="win-btns"><button class="win-btn min" onclick="minimizeWin('${id}')"></button><button class="win-btn close" onclick="closeWindow('${id}')"></button></div></div><div class="win-body" id="wbody-${id}"></div><div class="win-resize" id="wresize-${id}"></div>`;
+  win.innerHTML=`<div class="win-title" id="wtitle-${id}"><span>${cfg.icon}</span><span class="win-name">${cfg.title}</span><div class="win-btns" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"><button class="win-btn min" onclick="minimizeWin('${id}')" title="Minimise"></button><button class="win-btn close" onclick="closeWindow('${id}')" title="Close"></button></div></div><div class="win-body" id="wbody-${id}"></div><div class="win-resize" id="wresize-${id}"></div>`;
   document.getElementById('desktop').appendChild(win);
   windows[id]={el:win,cfg,minimized:false};
   unfocusAll();win.style.zIndex=++winZ;
@@ -676,8 +728,8 @@ function unfocusAll(){document.querySelectorAll('.win').forEach(w=>w.classList.r
 function closeWindow(id){if(!windows[id])return;const el=windows[id].el;el.style.animation='winClose .15s forwards';setTimeout(()=>{el.remove();delete windows[id];},150);}
 function minimizeWin(id){if(!windows[id])return;windows[id].minimized=true;windows[id].el.style.display='none';}
 function unminimize(id){if(!windows[id])return;windows[id].minimized=false;windows[id].el.style.display='flex';}
-function startDrag(e,id){if(e.target.classList.contains('win-btn'))return;e.preventDefault();const win=windows[id]?.el;if(!win)return;focusWindow(id);const r=win.getBoundingClientRect();dragState={id,ox:e.clientX-r.left,oy:e.clientY-r.top};}
-function startDragTouch(e,id){if(e.target.classList.contains('win-btn'))return;e.preventDefault();const win=windows[id]?.el;if(!win)return;focusWindow(id);const t=e.touches[0];const r=win.getBoundingClientRect();dragState={id,ox:t.clientX-r.left,oy:t.clientY-r.top};}
+function startDrag(e,id){if(e.target.closest('.win-btns'))return;e.preventDefault();const win=windows[id]?.el;if(!win)return;focusWindow(id);const r=win.getBoundingClientRect();dragState={id,ox:e.clientX-r.left,oy:e.clientY-r.top};}
+function startDragTouch(e,id){if(e.target.closest('.win-btns'))return;e.preventDefault();const win=windows[id]?.el;if(!win)return;focusWindow(id);const t=e.touches[0];const r=win.getBoundingClientRect();dragState={id,ox:t.clientX-r.left,oy:t.clientY-r.top};}
 function startResize(e,id){e.preventDefault();e.stopPropagation();const win=windows[id]?.el;if(!win)return;focusWindow(id);const r=win.getBoundingClientRect();resizeState={id,startX:e.clientX,startY:e.clientY,startW:r.width,startH:r.height};}
 function startResizeTouch(e,id){e.preventDefault();e.stopPropagation();const win=windows[id]?.el;if(!win)return;focusWindow(id);const t=e.touches[0];const r=win.getBoundingClientRect();resizeState={id,startX:t.clientX,startY:t.clientY,startW:r.width,startH:r.height};}
 function handlePointerMove(cx,cy){
@@ -768,7 +820,7 @@ function homePage(){
     {url:'bank.spoofed',icon:'🏦',name:'SecureBank Clone',desc:'Deploy fake bank portal'},
     {url:'forums.darknet',icon:'💬',name:'Scammer Forums',desc:'Tips & community'},
     {url:'launder.crypto',icon:'💱',name:'Crypto Mixer',desc:'Launder your DD'},
-    {url:'news.clearnet',icon:'📰',name:'ClearNet News',desc:'What they\'re saying'},
+    {url:'news.clearnet',icon:'📰',name:'ClearNet News',desc:"What they're saying"},
     {url:'job.board',icon:'🎯',name:'Dark Job Board',desc:'Contract work'},
     {url:'intel.market',icon:'🔍',name:'Intel Market',desc:'Stolen data packs'},
   ].map(s=>`<div onclick="browserGo('${s.url}')" style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:12px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--border)'"><div style="font-size:18px;margin-bottom:5px">${s.icon}</div><div style="font-size:10px;color:var(--acc)">${s.name}</div><div style="font-size:9px;color:var(--text2);margin-top:2px">${s.desc}</div></div>`).join('')}</div></div>`;
@@ -781,7 +833,7 @@ function forumsPage(){
     {user:'0xGhost99',post:'Heat Management app changed my game. Honeypot Disruptor + Counter-Intel = never hit 5★ again.',time:'2m',ups:89},
     {user:'ph1sh_m4ster',post:'Corporate phase (purple) is now where the real money is. Corp Heist Planner can chain 4 ops for massive payouts.',time:'15m',ups:134},
     {user:'kr1ptonian',post:'Shadow Syndicate in T5 — you can broker intel between factions for 50k+ per deal. Zero heat.',time:'3h',ups:201},
-    {user:'anon7734',post:'Ghost Protocol upgrade reduces heat gain by 70%. Combined with VPN it\'s basically 85% reduction total.',time:'5h',ups:177},
+    {user:'anon7734',post:"Ghost Protocol upgrade reduces heat gain by 70%. Combined with VPN it's basically 85% reduction total.",time:'5h',ups:177},
     {user:'darksh0p',post:'Apex phase gold UI is insane. The Apex Legend ops are all passive — you literally just watch DD flow in.',time:'8h',ups:243},
   ].map(p=>`<div style="border-bottom:1px solid var(--border);padding:8px 0"><div style="display:flex;gap:6px;align-items:center;margin-bottom:4px"><span style="color:var(--acc);font-size:10px">@${p.user}</span><span style="color:#224;font-size:9px">${p.time}</span><span style="margin-left:auto;color:var(--yellow);font-size:9px">▲ ${p.ups}</span></div><div style="font-size:11px;color:var(--text);line-height:1.5">${p.post}</div></div>`).join('')}</div>`;
 }
@@ -1209,7 +1261,7 @@ function runOp(id){
   opTimers[id]={start:Date.now()};
   addLog(`Op started: ${op.name}`,'warn');
   refreshOpsList();
-  const interval=setInterval(()=>refreshOpsList(),400);
+  const interval=setInterval(()=>refreshOpsList(),800);
   setTimeout(()=>{
     clearInterval(interval);delete opTimers[id];
     if(G.leoFrozen){refreshOpsList();return;}
@@ -1225,6 +1277,7 @@ function runOp(id){
     if(op.wantedGain>0) addWanted(op.wantedGain*heatMult);
     notify(`${op.icon} ${op.name}`,`+${fmtDD(reward)} DD`,'success');
     addLog(`${op.name} +${fmtDD(reward)}DD`,'pos');
+    tryRichTargetEvent();checkRelics();
     refreshOpsList();
     if(document.getElementById('wbody-stats'))renderStats(document.getElementById('wbody-stats'));
     if(document.getElementById('wbody-tasks'))renderTasks(document.getElementById('wbody-tasks'));
@@ -1346,7 +1399,7 @@ const PHISH_TEMPLATES={
   prize:{subject:'You\'ve been selected!',body:`Congratulations!\n\nYou WON $500 in gift cards.\n\nClaim: http://winner-claim-now.com\n\nPromo Team`},
   it:{subject:'[IT DEPT] Password expires 24h',body:`Hello,\n\nUpdate your password now:\nhttp://corp-helpdesk-portal.com/reset\n\nIT Support`},
   delivery:{subject:'Package delivery failed',body:`Dear Customer,\n\nParcel ID: DL${~~(Math.random()*999999)} — delivery failed.\n\nReschedule: http://delivery-rebook.com\n\nCourier`},
-  gov:{subject:'HMRC Tax Refund Available',body:`Dear Taxpayer,\n\nYou\'re owed £847.20.\n\nClaim: http://gov-refund-portal-hmrc.com\n\nHMRC`},
+  gov:{subject:'HMRC Tax Refund Available',body:`Dear Taxpayer,\n\nYou're owed £847.20.\n\nClaim: http://gov-refund-portal-hmrc.com\n\nHMRC`},
 };
 function renderPhish(container){
   container.innerHTML=`<div class="section-header"><div class="dot"></div>PHISHING STUDIO</div><div class="phish-game"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><div class="phish-editor"><label>TEMPLATE</label><select id="phish-tmpl" onchange="updatePhishPreview()"><option value="bank">🏦 Bank Alert</option><option value="prize">🎰 Prize</option><option value="it">🖥️ IT Dept</option><option value="delivery">📦 Delivery</option><option value="gov">🏛️ Gov Refund</option></select><label>SENDER</label><input id="phish-sender" value="SecureBank Security" oninput="calcSuspicion()"><label>TARGET COUNT</label><input id="phish-count" type="number" value="50" min="1" max="1000" oninput="calcSuspicion()"><label>SUSPICION</label><div class="suspicion-meter"><div class="suspicion-fill" id="susp-fill" style="width:40%;background:#ffaa00"></div></div><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text2)"><span>LOW</span><span id="susp-label">MED</span><span>HIGH</span></div><div style="margin-top:8px;font-size:9px;color:var(--text2)">Kit: ${G.upgrades.spellcheck?'SPELL-CHECKED':'BASIC'} | DB: ${G.upgrades.leakDatabase?'TARGETED':'GENERIC'}</div><div id="phish-estimate" style="font-size:10px;color:var(--acc);margin-top:5px"></div></div><button class="btn" style="width:100%;margin-top:8px" onclick="launchPhishCampaign()">🚀 LAUNCH</button><div id="phish-result" style="margin-top:6px;font-size:10px"></div></div><div><div style="font-size:9px;color:var(--text2);margin-bottom:5px;letter-spacing:1px">PREVIEW</div><div class="email-template" id="phish-preview"></div></div></div></div>`;
@@ -1624,7 +1677,8 @@ const EVENTS=[
   {prob:.04,fn:()=>{const r=Math.floor(25+Math.random()*35);earnDD(r,null);if(!G.upgrades.honeypotDisruptor)addWanted(.4);notify('🎰 Hit',`+${r} DD`,'success');}},
   {prob:.03,fn:()=>{const fine=Math.floor(G.dd*0.03);if(fine>0){G.dd-=fine;updateUI();notify('⚠ Server Seized',`-${fmtDD(fine)} DD`,'error');}}},
 ];
-function triggerRandomEvent(){for(const ev of EVENTS){if(Math.random()<ev.prob){ev.fn();break;}}}
+function triggerRandomEvent(){
+  tryRichTargetEvent();checkRelics();for(const ev of EVENTS){if(Math.random()<ev.prob){ev.fn();break;}}}
 
 // ════════════════════════════════════════════════════════
 // HUD
@@ -1745,6 +1799,7 @@ function startGame(){
   startGameLoop(false);
 }
 function startGameLoop(isReturning=false){
+  applyAllAbilities();
   updateUI();updateWanted();updateXPBar();
   PHASES.forEach(p=>document.body.classList.remove(p.cls));
   document.body.classList.add(PHASES[currentPhaseIdx].cls);
@@ -1764,6 +1819,231 @@ function startGameLoop(isReturning=false){
       setTimeout(()=>showTutorial(),600);
     }
   },300);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// ABILITY SYSTEM — Skill Refinery
+// ═══════════════════════════════════════════════════════════
+const ABILITIES_DATA=[
+  {id:'cooldown',name:'Neural Efficiency',icon:'⚡',
+   desc:'Train your execution speed. Reduces all Scam Op cooldowns.',
+   effects:['–8% cooldown','–16% cooldown','–24% cooldown','–32% cooldown','–40% cooldown'],
+   maxLevel:5,baseCost:150,costScale:2.2,
+   apply:(lvl)=>{const base=G.upgrades.proxychains?0.8:1;G._cooldownMult=base*(1-lvl*0.08);}},
+  {id:'reward',name:'Social Manipulation',icon:'🧠',
+   desc:'Sharpen your manipulation techniques. Increases all op rewards.',
+   effects:['+10% rewards','+20% rewards','+30% rewards','+40% rewards','+50% rewards'],
+   maxLevel:5,baseCost:200,costScale:2.3,
+   apply:(lvl)=>{G._abilityRewardMult=1+lvl*0.1;}},
+  {id:'stealth',name:'Ghost Protocol',icon:'👻',
+   desc:'Move unseen. Reduces wanted level gains from all operations.',
+   effects:['–9% heat','–18% heat','–27% heat','–36% heat','–45% heat'],
+   maxLevel:5,baseCost:180,costScale:2.4,
+   apply:(lvl)=>{G._stealthMult=1-lvl*0.09;}},
+  {id:'passive',name:'Automation Matrix',icon:'🤖',
+   desc:'Optimise your automated income streams. Boosts passive DD/sec.',
+   effects:['+12% passive','+24% passive','+36% passive','+48% passive','+60% passive'],
+   maxLevel:5,baseCost:220,costScale:2.5,
+   apply:(lvl)=>{G._passiveMult=1+lvl*0.12;}},
+  {id:'xpGain',name:'Pattern Recognition',icon:'🔍',
+   desc:'Learn from every operation. Gain more XP from all activities.',
+   effects:['+10% XP','+20% XP','+30% XP','+40% XP','+50% XP'],
+   maxLevel:5,baseCost:140,costScale:2.0,
+   apply:(lvl)=>{G._xpMult=1+lvl*0.1;}},
+  {id:'richChance',name:'High-Value Targeting',icon:'💎',
+   desc:'Identify and target wealthy victims. Increases rich target event chance.',
+   effects:['Rich target ×1.5','Rich target ×2','Rich target ×3'],
+   maxLevel:3,baseCost:500,costScale:3.5,
+   apply:(lvl)=>{G._richMult=[1,1.5,2,3][lvl];}},
+];
+
+function getAbilityCost(ab){
+  const lvl=G.abilities[ab.id]||0;
+  if(lvl>=ab.maxLevel)return null;
+  return Math.floor(ab.baseCost*Math.pow(ab.costScale,lvl));
+}
+
+function applyAllAbilities(){
+  ABILITIES_DATA.forEach(ab=>ab.apply(G.abilities[ab.id]||0));
+}
+
+function upgradeAbility(id){
+  const ab=ABILITIES_DATA.find(a=>a.id===id);
+  if(!ab)return;
+  const lvl=G.abilities[id]||0;
+  if(lvl>=ab.maxLevel){notify('Max Level','This ability is fully trained.','warn');return;}
+  const cost=getAbilityCost(ab);
+  if(G.dd<cost){notify('Insufficient Funds',`Need ${fmtDD(cost)} DD.`,'error');return;}
+  G.dd-=cost;
+  G.abilities[id]=lvl+1;
+  G.totalAbilitySpend+=cost;
+  ab.apply(G.abilities[id]);
+  gainXP(40);updateUI();
+  notify(`⚡ ${ab.name} upgraded!`,`Level ${G.abilities[id]}/${ab.maxLevel} — ${ab.effects[G.abilities[id]-1]}`,'info');
+  addLog(`Ability: ${ab.name} → Lv${G.abilities[id]}`,'pos');
+  checkRelics();
+  const w=document.getElementById('wbody-abilities');
+  if(w)renderAbilities(w);
+}
+
+function renderAbilities(container){
+  container.innerHTML=`
+    <div class="section-header"><div class="dot"></div>SKILL REFINERY <span style="margin-left:auto;color:var(--yellow)">Balance: ${fmtDD(Math.floor(G.dd))} DD</span></div>
+    <div style="padding:8px 14px 4px;font-size:11px;color:var(--text2);line-height:1.6">Train your attributes permanently. Costs scale exponentially — invest wisely. Stacks with shop upgrades.</div>
+    ${ABILITIES_DATA.map(ab=>{
+      const lvl=G.abilities[ab.id]||0;
+      const cost=getAbilityCost(ab);
+      const maxed=lvl>=ab.maxLevel;
+      const canAfford=!maxed&&G.dd>=cost;
+      const pct=(lvl/ab.maxLevel)*100;
+      return `<div class="ability-card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:22px">${ab.icon}</span>
+          <div style="flex:1"><div class="ab-name">${ab.name}</div><div class="ab-desc">${ab.desc}</div></div>
+        </div>
+        <div class="ability-row">
+          <span>Level <strong style="color:var(--acc)">${lvl}</strong> / ${ab.maxLevel}</span>
+          ${maxed?'<span class="ability-max">✓ MASTERED</span>':`<span class="ability-cost">💰 ${fmtDD(cost)} DD</span>`}
+        </div>
+        <div class="ability-bar-wrap"><div class="ability-bar" style="width:${pct}%"></div></div>
+        ${lvl>0?`<div style="font-size:10px;color:var(--acc);margin-bottom:8px">Active: ${ab.effects[lvl-1]}</div>`:''}
+        ${!maxed?`<button class="btn ${canAfford?'':'danger'}" style="width:100%;font-size:11px" onclick="upgradeAbility('${ab.id}')">
+          ${canAfford?`⬆ TRAIN (${fmtDD(cost)} DD)`:`🔒 NEED ${fmtDD(cost)} DD`}
+        </button>`:'<div style="text-align:center;font-size:11px;color:var(--acc);padding:6px">★ MASTERED ★</div>'}
+      </div>`;
+    }).join('')}
+    <div style="padding:10px 14px;font-size:10px;color:var(--text2);text-align:center;border-top:1px solid var(--border)">Total invested: ${fmtDD(Math.floor(G.totalAbilitySpend))} DD in abilities</div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RELIC GALLERY — Achievement System
+// ═══════════════════════════════════════════════════════════
+const RELICS_DATA=[
+  // Milestones
+  {id:'r_first_blood',icon:'🩸',name:'First Blood',cond:'Complete your first Scam Op',check:()=>G.scamsRun>=1,tier:0},
+  {id:'r_100dd',icon:'💵',name:'Three Figures',cond:'Earn 100 DD total',check:()=>G.totalEarned>=100,tier:0},
+  {id:'r_1kdd',icon:'💰',name:'Grand Operator',cond:'Earn 1,000 DD total',check:()=>G.totalEarned>=1000,tier:1},
+  {id:'r_10kdd',icon:'🏦',name:'Five-Figure Fraud',cond:'Earn 10,000 DD total',check:()=>G.totalEarned>=10000,tier:1},
+  {id:'r_50kdd',icon:'💎',name:'Corporate Ghost',cond:'Earn 50,000 DD total',check:()=>G.totalEarned>=50000,tier:2},
+  {id:'r_200kdd',icon:'👑',name:'Nation-State Threat',cond:'Earn 200,000 DD total',check:()=>G.totalEarned>=200000,tier:3},
+  {id:'r_1mdd',icon:'🌐',name:'The Architect',cond:'Earn 1,000,000 DD total',check:()=>G.totalEarned>=1000000,tier:3},
+  // Scams
+  {id:'r_10scams',icon:'📨',name:'Volume Player',cond:'Complete 10 Scam Ops',check:()=>G.scamsRun>=10,tier:0},
+  {id:'r_50scams',icon:'🎯',name:'Seasoned Con Artist',cond:'Complete 50 Scam Ops',check:()=>G.scamsRun>=50,tier:1},
+  {id:'r_200scams',icon:'🕵️',name:'Master Operator',cond:'Complete 200 Scam Ops',check:()=>G.scamsRun>=200,tier:2},
+  // Phishing
+  {id:'r_100phish',icon:'🎣',name:'Spear Fisher',cond:'Hook 100 phishing victims',check:()=>G.phishSuccess>=100,tier:1},
+  {id:'r_1000phish',icon:'🌊',name:'Flood the Net',cond:'Hook 1,000 phishing victims',check:()=>G.phishSuccess>=1000,tier:2},
+  // Level
+  {id:'r_lvl5',icon:'⬆️',name:'Rising Threat',cond:'Reach Level 5',check:()=>G.level>=5,tier:0},
+  {id:'r_lvl10',icon:'🔥',name:'Veteran Fraudster',cond:'Reach Level 10',check:()=>G.level>=10,tier:1},
+  {id:'r_lvl15',icon:'💀',name:'Legend of the Dark',cond:'Reach Level 15',check:()=>G.level>=15,tier:2},
+  // Rich targets
+  {id:'r_rich1',icon:'🤑',name:'Lucky Strike',cond:'Hit a rich target',check:()=>G.richTargetsHit>=1,tier:0},
+  {id:'r_rich5',icon:'💸',name:'Whale Hunter',cond:'Hit 5 rich targets',check:()=>G.richTargetsHit>=5,tier:1},
+  {id:'r_rich15',icon:'🦈',name:'Apex Predator',cond:'Hit 15 rich targets',check:()=>G.richTargetsHit>=15,tier:2},
+  // Abilities
+  {id:'r_ab_any',icon:'⚡',name:'First Training',cond:'Upgrade any ability once',check:()=>G.totalAbilitySpend>0,tier:0},
+  {id:'r_ab_master1',icon:'🧠',name:'Single Mastery',cond:'Fully master one ability',check:()=>ABILITIES_DATA.some(ab=>(G.abilities[ab.id]||0)>=ab.maxLevel),tier:1},
+  {id:'r_ab_allmax',icon:'🎓',name:'Ghost Operator',cond:'Max out ALL abilities',check:()=>ABILITIES_DATA.every(ab=>(G.abilities[ab.id]||0)>=ab.maxLevel),tier:3},
+  // Wanted
+  {id:'r_wanted5',icon:'🚨',name:'Most Wanted',cond:'Get busted by LEO and survive',check:()=>G.busts>=1,tier:1},
+  // Passive
+  {id:'r_passive10',icon:'🤖',name:'Always Working',cond:'Reach 10 DD/sec passive',check:()=>G.passiveIncome>=10,tier:1},
+  {id:'r_passive50',icon:'💹',name:'Money Machine',cond:'Reach 50 DD/sec passive',check:()=>G.passiveIncome>=50,tier:2},
+  // Special
+  {id:'r_launder5',icon:'💱',name:'Clean Money',cond:'Launder money 5 times',check:()=>G.launders>=5,tier:0},
+  {id:'r_allphases',icon:'🌈',name:'Full Spectrum',cond:'Reach Phase 4 (Nation-State)',check:()=>currentPhaseIdx>=4,tier:3},
+];
+
+function checkRelics(){
+  let newly=[];
+  RELICS_DATA.forEach(r=>{
+    if(!G.relicsUnlocked.includes(r.id)&&r.check()){
+      G.relicsUnlocked.push(r.id);
+      newly.push(r);
+    }
+  });
+  newly.forEach(r=>{
+    const tierNames=['Bronze','Silver','Gold','Platinum'];
+    const el=document.createElement('div');
+    el.className='notif jackpot';
+    el.style.animation='richFlash 0.5s ease-in-out 3';
+    el.innerHTML=`<div class="n-title" style="color:#ffd700">🏆 RELIC: ${r.name}</div><div class="n-body" style="color:#ffd700">${r.cond} — ${tierNames[r.tier]||''} trophy</div>`;
+    document.getElementById('notif-container').appendChild(el);
+    el.addEventListener('click',()=>el.remove());
+    setTimeout(()=>{el.style.animation='notifOut 0.3s forwards';setTimeout(()=>el.remove(),300);},5000);
+    addLog(`🏆 Relic: ${r.name}`,'pos');
+    const btn=document.querySelector("[onclick=\"openWindow('relics')\"]");
+    if(btn){btn.style.color='var(--yellow)';btn.style.borderColor='var(--yellow)';setTimeout(()=>{btn.style.color='';btn.style.borderColor='';},3000);}
+  });
+  if(newly.length&&document.getElementById('wbody-relics'))renderRelics(document.getElementById('wbody-relics'));
+}
+
+function renderRelics(container){
+  const total=RELICS_DATA.length;
+  const unlocked=G.relicsUnlocked.length;
+  const tierColors=['#cd7f32','#c0c0c0','#ffd700','#e5e4e2'];
+  const tierNames=['Bronze','Silver','Gold','Platinum'];
+  container.innerHTML=`
+    <div class="section-header"><div class="dot"></div>RELIC GALLERY <span style="margin-left:auto;color:var(--yellow)">${unlocked}/${total} Collected</span></div>
+    <div style="padding:6px 14px;font-size:11px;color:var(--text2)">Permanent trophies earned by hitting milestones. They never expire.</div>
+    <div style="padding:4px 14px 8px;display:flex;gap:10px">
+      ${[0,1,2,3].map(t=>{
+        const cnt=G.relicsUnlocked.filter(id=>RELICS_DATA.find(r=>r.id===id&&r.tier===t)).length;
+        const tot=RELICS_DATA.filter(r=>r.tier===t).length;
+        return `<div style="padding:4px 10px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;font-size:10px;text-align:center;flex:1"><div style="color:${tierColors[t]};font-size:12px;margin-bottom:2px">${tierNames[t]}</div><div style="color:var(--text2)">${cnt}/${tot}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="relic-grid">
+      ${RELICS_DATA.map(r=>{
+        const isUnlocked=G.relicsUnlocked.includes(r.id);
+        return `<div class="relic-card ${isUnlocked?'unlocked':'locked'}">
+          <div class="rel-icon">${r.icon}</div>
+          <div class="rel-name" style="color:${isUnlocked?tierColors[r.tier]:'var(--text2)'}">${r.name}</div>
+          <div class="rel-cond">${r.cond}</div>
+          ${isUnlocked?'<div style="font-size:9px;color:var(--acc);margin-top:4px">✓ EARNED</div>':''}
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RICH TARGET EVENTS — rare jackpot moments
+// ═══════════════════════════════════════════════════════════
+let lastRichEvent=0;
+const RICH_TITLES=['Saudi Prince','Silicon Valley CEO','Crypto Whale','Hedge Fund Manager','Real Estate Mogul',"Oligarch's Aide",'Film Producer','Pharma Executive'];
+const RICH_AMOUNTS=[[800,1500],[1200,2500],[2000,4000],[3000,6000]];
+
+function tryRichTargetEvent(){
+  const now5=Date.now();
+  if(now5-lastRichEvent<45000)return;
+  const basePct=0.006;
+  const mult=G._richMult||1;
+  const phase=Math.min(3,currentPhaseIdx);
+  const finalChance=basePct*mult*(1+phase*0.3);
+  if(Math.random()>finalChance)return;
+  lastRichEvent=now5;
+  const person=RICH_TITLES[Math.floor(Math.random()*RICH_TITLES.length)];
+  const tier=Math.min(3,currentPhaseIdx+Math.floor(Math.random()*2));
+  const range=RICH_AMOUNTS[tier];
+  const amount=Math.floor((range[0]+Math.random()*(range[1]-range[0]))*G.multiplier*(G._abilityRewardMult||1));
+  G.richTargetsHit++;
+  earnDD(amount,null);
+  gainXP(Math.floor(amount/10));
+  addWanted(0.8);
+  const el=document.createElement('div');
+  el.className='notif jackpot';
+  el.style.cssText='animation:richFlash 0.5s ease-in-out 3;border-left-color:#ffd700;background:rgba(255,215,0,.08)';
+  el.innerHTML=`<div class="n-title" style="color:#ffd700;font-size:13px">💸 RICH TARGET HOOKED</div><div class="n-body" style="color:#ffd700">${person} fell for the trap.<br><strong style="font-size:14px">+${fmtDD(amount)} DD</strong></div>`;
+  document.getElementById('notif-container').appendChild(el);
+  el.addEventListener('click',()=>el.remove());
+  setTimeout(()=>{el.style.animation='notifOut 0.3s forwards';setTimeout(()=>el.remove(),300);},5000);
+  addLog(`💸 RICH TARGET: ${person} — +${fmtDD(amount)}DD`,'pos');
+  checkRelics();
 }
 
 runBoot();
